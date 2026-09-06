@@ -156,7 +156,7 @@ function alertOf(e){const d=derive(e);
 
 /* ---------- state ---------- */
 let state=load();
-function defaults(){return{entries:JSON.parse(JSON.stringify(SEED)),tasks:{},shipments:[],labels:[],
+function defaults(){return{entries:JSON.parse(JSON.stringify(SEED)),tasks:{},shipments:[],labels:[],invLog:[],
   settings:{title:'יקב טורא',sub:'ניהול מחסן',cloud:{url:'',token:'',auto:false,lastSync:''}},grid:{rows:20,cols:15},
   taskCats:['תיוות יינות','הכנת הפצה','כוח אדם','סידור מחסן','משימות פתוחות'],dayCats:{},
   weekLabels:{}};}
@@ -186,7 +186,8 @@ const entryAt=(r,c,lv)=>state.entries.find(e=>e.prow===r&&e.pcol===c&&e.plevel==
 
 /* ---------- tabs (order: dashboard, map, location, tasks, inventory, shipments) ---------- */
 const TABS=[['v-dash','דשבורד',()=>renderDash()],['v-map','מפת מחסן',()=>renderMap()],['v-loc','מיקום במחסן',()=>renderLoc()],
- ['v-tasks','משימות',()=>renderTasks()],['v-inv','מלאי מחסן',()=>renderInv()],['v-ship','משלוחים',()=>renderShip()],['v-labels','הפצה',()=>renderLabels()]];
+ ['v-tasks','משימות',()=>renderTasks()],['v-inv','מלאי מחסן',()=>renderInv()],['v-invlog','יומן תנועות',()=>renderInvLog()],
+ ['v-ship','משלוחים',()=>renderShip()],['v-labels','הפצה',()=>renderLabels()]];
 function buildNav(){const n=document.getElementById('nav');n.innerHTML='';
   TABS.forEach(([id,label],i)=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>activate(i);if(i===0)b.classList.add('active');n.appendChild(b);});}
 let curTab=0;

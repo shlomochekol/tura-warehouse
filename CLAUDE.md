@@ -27,7 +27,7 @@ There are no other lint/build/test commands — don't invent `npm run` scripts; 
 
 - **`index.html`** — UI shell only. Scripts load in numeric order from `assets/js/`; **load order matters** and is meaningful (state/constants first, boot logic last).
 - **`assets/js/01-core.js`** — constants, `state`, lazy-lib loader (`needLib`), box/pallet calculations, sanitization helpers.
-- **`assets/js/02-dashboard.js` … `23-deduct.js`** — one module per screen/topic (dashboard, map, location, inventory, settings, labels, CSV, barcodes, cloud backups, diagnostics, autosave, LionWheel import, Supabase sync, row sync, board, tasks, picking, supply, deduct).
+- **`assets/js/02-dashboard.js` … `24-invlog.js`** — one module per screen/topic (dashboard, map, location, inventory, settings, labels, CSV, barcodes, cloud backups, diagnostics, autosave, LionWheel import, Supabase sync, row sync, board, tasks, picking, supply, deduct, inventory transaction log).
 - **`assets/js/99-boot.js`** — runs last: scroll-position preservation across full-screen re-renders, Escape-key handling, initial state sanitation, nav build, and the automatic `selfTest()` call.
 - **New module convention**: add it before `99-boot.js` in both `index.html`'s `<script>` list and the file numbering. Keep changes scoped to one module at a time — duplicate function names across modules (one silently overwriting another) is the main foot-gun; `selfTest()`'s "critical functions" check exists specifically to catch that.
 - **Lazy-loaded libraries** (`assets/lib/`): `xlsx.js`, `jsqr.js`, `html2canvas.js`, `zxing.js` (~690KB total) are only fetched on demand via `needLib()` in `01-core.js`, not on initial page load (~440KB instead of ~1.1MB).
@@ -37,7 +37,9 @@ There are no other lint/build/test commands — don't invent `npm run` scripts; 
 
 ## Data model
 
-Cloud tables (Supabase): `businesses`, `memberships`, `inventory`, `shipments`, `labels`, `app_state`, `backups`. Every row carries `business_id`; RLS policies enforce that one business can't see another's data — isolation is enforced in the database itself. Actual data is stored as JSON in a `data` column (hence `views.sql` for flat querying).
+Cloud tables (Supabase): `businesses`, `memberships`, `inventory`, `shipments`, `labels`, `inv_log`, `app_state`, `backups`. Every row carries `business_id`; RLS policies enforce that one business can't see another's data — isolation is enforced in the database itself. Actual data is stored as JSON in a `data` column (hence `views.sql` for flat querying).
+
+`inv_log` is the append-only inventory transaction log (see `assets/js/24-invlog.js`) — every quantity (`units`) change on a "מיקום במחסן" entry is recorded with before/after/reason via `logInv()`. It row-syncs like `inventory`/`shipments`/`labels` (see `SB_TABLES` in `18-rowsync.js`). Run `inv_log_setup.sql` once in Supabase's SQL Editor to create the table (and its `v_inv_log` view) before the log will sync to the cloud — until then it still works, but local-only per device.
 
 **Working modes**: if the user is logged in, data lives in Supabase (cloud); if not, the app works local-only via `localStorage` (key defined as `KEY` in `01-core.js`), optionally with the legacy Google Sheets sync as a backup path.
 

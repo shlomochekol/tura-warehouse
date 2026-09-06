@@ -2,7 +2,7 @@
 function selfTest(){
   const T=[],ok=(n,c,d)=>T.push({n,pass:!!c,d:d||''});
   /* פונקציות קריטיות — תופס באגים של "שם כפול" שדרס פונקציה */
-  const need=['renderDash','renderMap','renderLoc','renderTasks','renderInv','renderShip','renderLabels','derive','save','refresh','capDisp','colorOf','printLabels','importLionWheel','sbPushChanged','sbSyncTable','sbBackupNow','sbDoRestore','openCapSettings','openCatUnits','tkQuickAdd','boardWeekHTML','bpb','bpp','capOf','isLabeled','backupNow','openRestore','maybeDailyBackup','saveOnExit','loadCustomCats','seedCatDefaults','sbPull','openResetSpots','doResetSpots','spotsPlaced','openAssign','assignTo','assignCandidates','addEntryAt','openDeduct','dedCandidates','dedApply','dedUndo','barcodeOf','findByBarcode','productByCode','openBarcodeScan','openBarcodeManager','openPicking','printPicking','pickingRows','saveRoute','openRoutes','loadRoute','openSupplyDay','supplyTotals','supplyPanelHTML'];
+  const need=['renderDash','renderMap','renderLoc','renderTasks','renderInv','renderShip','renderLabels','derive','save','refresh','capDisp','colorOf','printLabels','importLionWheel','sbPushChanged','sbSyncTable','sbBackupNow','sbDoRestore','openCapSettings','openCatUnits','tkQuickAdd','boardWeekHTML','bpb','bpp','capOf','isLabeled','backupNow','openRestore','maybeDailyBackup','saveOnExit','loadCustomCats','seedCatDefaults','sbPull','openResetSpots','doResetSpots','spotsPlaced','openAssign','assignTo','assignCandidates','addEntryAt','openDeduct','dedCandidates','dedApply','dedUndo','barcodeOf','findByBarcode','productByCode','openBarcodeScan','openBarcodeManager','openPicking','printPicking','pickingRows','saveRoute','openRoutes','loadRoute','openSupplyDay','supplyTotals','supplyPanelHTML','logInv','logImportDiff','renderInvLog','invLogFilter','invKeyOf'];
   const has=n=>{try{return typeof eval(n)==='function';}catch(e){return false;}};
   const miss=need.filter(n=>!has(n));
   ok('כל '+need.length+' הפונקציות הקריטיות קיימות',!miss.length,miss.join(', '));
@@ -16,6 +16,15 @@ function selfTest(){
   /* תאריכים — תופס את הבאג שבו weekStart נדרסה */
   try{const ws=weekStart(0);ok('חישוב תחילת שבוע',ws.getFullYear()>=new Date().getFullYear(),ws.toLocaleDateString('he-IL'));}
   catch(e){ok('חישוב תחילת שבוע',false,e.message);}
+  /* יומן תנועות מלאי — תופס אם logInv לא רושם או רושם ערכים שגויים */
+  try{
+    const bak=state.invLog;state.invLog=[];
+    const rec=logInv({id:'test',category:'בדיקה',vintage:'',type:'',prow:0,pcol:0,plevel:0},10,7,'manual');
+    ok('יומן תנועות: רישום שינוי כמות',!!rec&&rec.delta===-3&&state.invLog.length===1,
+      rec?('לפני '+rec.before+' אחרי '+rec.after+' Δ'+rec.delta):'לא נרשם');
+    state.invLog=bak;
+  }catch(e){ok('יומן תנועות',false,e.message);}
+  ok('יומן תנועות: 4 סוגי פעולה מוגדרים',Object.keys(INVLOG_REASONS).length===4,Object.values(INVLOG_REASONS).join(', '));
   /* קפסולות וצבעים */
   ok('קפסולה 1 = לבן',capColorOfNum('1')==='לבן',capColorOfNum('1'));
   try{const withBc=(state.entries||[]).filter(e=>barcodeOf(e)).length;

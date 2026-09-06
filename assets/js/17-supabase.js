@@ -63,23 +63,25 @@ async function sbPull(){
   const bid=SB.biz;
   /* עותק בטיחות — אם המשיכה תיכשל באמצע, לא נשאר עם מצב חלקי */
   const _before=sbFingerprint();
-  const _bk={entries:state.entries,shipments:state.shipments,labels:state.labels,
+  const _bk={entries:state.entries,shipments:state.shipments,labels:state.labels,invLog:state.invLog,
     settings:JSON.parse(JSON.stringify(state.settings||{})),
     tasks2:state.tasks2,board:state.board,supply:state.supply,routes:state.routes,
     boardCats:state.boardCats,supplyItems:state.supplyItems,grid:state.grid};
   try{
-  const [invT,shipT,lblT,st]=await Promise.all([
-    sbFetchTable('inventory'),sbFetchTable('shipments'),sbFetchTable('labels'),
+  const [invT,shipT,lblT,logT,st]=await Promise.all([
+    sbFetchTable('inventory'),sbFetchTable('shipments'),sbFetchTable('labels'),sbFetchTable('inv_log'),
     sbRest('GET','app_state?select=key,value&business_id=eq.'+bid)
   ]);
-  _sbMap.inventory=invT.map;_sbMap.shipments=shipT.map;_sbMap.labels=lblT.map;
-  const inv=invT.list.map(d=>({data:d})),ship=shipT.list.map(d=>({data:d})),lbl=lblT.list.map(d=>({data:d}));
+  _sbMap.inventory=invT.map;_sbMap.shipments=shipT.map;_sbMap.labels=lblT.map;_sbMap.inv_log=logT.map;
+  const inv=invT.list.map(d=>({data:d})),ship=shipT.list.map(d=>({data:d})),lbl=lblT.list.map(d=>({data:d})),logs=logT.list.map(d=>({data:d}));
   let cloudEmpty=false;
   if(inv&&inv.length)state.entries=inv.map(r=>r.data); else if(state.entries&&state.entries.length)cloudEmpty=true;
   if(ship&&ship.length)state.shipments=ship.map(r=>r.data); else if(!(state.shipments||[]).length)state.shipments=[];
   if(lbl&&lbl.length)state.labels=lbl.map(r=>r.data); else if(!(state.labels||[]).length)state.labels=[];
+  if(logs&&logs.length)state.invLog=logs.map(r=>r.data); else if(!(state.invLog||[]).length)state.invLog=[];
   if((!ship||!ship.length)&&(state.shipments||[]).length)cloudEmpty=true;
   if((!lbl||!lbl.length)&&(state.labels||[]).length)cloudEmpty=true;
+  if((!logs||!logs.length)&&(state.invLog||[]).length)cloudEmpty=true;
   const kv={};(st||[]).forEach(r=>kv[r.key]=r.value);
   if(kv.__ver)_sbVer=kv.__ver;              /* מסתנכרנים עם גרסת הענן */
   if(kv.settings)Object.assign(state.settings,kv.settings);
@@ -136,7 +138,8 @@ function sbFingerprint(){
   try{
     return JSON.stringify(state.entries)+'|'+JSON.stringify(state.shipments)+'|'+
            JSON.stringify(state.labels)+'|'+JSON.stringify(state.tasks2||[])+'|'+
-           JSON.stringify(state.board||{})+'|'+JSON.stringify(state.supply||[]);
+           JSON.stringify(state.board||{})+'|'+JSON.stringify(state.supply||[])+'|'+
+           JSON.stringify(state.invLog||[]);
   }catch(e){return String(Math.random());}
 }
 let _sbVer=null;                       /* הגרסה שאנחנו מכירים */

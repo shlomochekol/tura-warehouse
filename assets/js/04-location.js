@@ -305,11 +305,13 @@ function renderLoc(){
 }
 function splitOne(e){const d=derive(e);if(d.pallets<=1.001)return false;const b=bpb(e.category,e.label);
   // keep 1 pallet here, move remainder to a new entry at next free slot
-  const PB=bpp(e.category);const remBoxes=d.boxes-PB;e.units=Math.round(PB*b*10)/10;
+  const PB=bpp(e.category);const remBoxes=d.boxes-PB;
+  const before=+e.units||0;e.units=Math.round(PB*b*10)/10;
+  logInv(e,before,e.units,'manual','פיצול מיקום — הועבר לפריט חדש');
   const id=Math.max(0,...state.entries.map(x=>x.id))+1;
   /* הפריט החדש נשאר ללא מיקום — המשתמש משבץ אותו בעצמו במפה ("+ שבץ") */
   const ne=Object.assign({},e,{id,units:Math.round(remBoxes*b*10)/10,notes:e.notes,prow:0,pcol:0,plevel:0});
-  state.entries.push(ne);return true;}
+  state.entries.push(ne);logInv(ne,0,ne.units,'manual','פיצול מיקום — פריט חדש');return true;}
 function nextFreeSlot(){for(let r=1;r<=gridRows()+3;r++)for(let c=1;c<=gridCols();c++){if(!isSlot(r,c))continue;for(let lv=1;lv<=3;lv++){if(!entryAt(r,c,lv))return{r,c,lv};}}return null;}
 function splitAll(){
   if(!confirm('לפצל מיקומים שחורגים ממשטח אחד?\n\nהחלק העודף יהפוך לפריט חדש <b>ללא מיקום</b>, ותשבץ אותו במפה.'.replace(/<[^>]+>/g,'')))return;
@@ -332,8 +334,10 @@ let _locRenderT=null;
 function locRenderSoon(){clearTimeout(_locRenderT);_locRenderT=setTimeout(()=>{refresh();},250);}
 function setF(id,f,v){
   const e=state.entries.find(x=>x.id===id);if(!e)return;
+  const beforeUnits=(f==='units')?(+e.units||0):null;
   e[f]=v;
   if(f==='category'){e.color=colorOf(v);}
+  if(beforeUnits!==null){const afterUnits=+v||0;if(afterUnits!==beforeUnits)logInv(e,beforeUnits,afterUnits,'manual');}
   save();
   if(NO_RENDER_FIELDS.includes(f))return;
   if(curTab===2&&!FULL_RENDER_FIELDS.includes(f)){
@@ -361,8 +365,12 @@ function commitLocEdits(){
     });
   }catch(err){}
 }
-function delEntry(id){const a=document.activeElement;if(a&&a.blur)a.blur();commitLocEdits();if(confirm('למחוק מיקום זה?')){state.entries=state.entries.filter(x=>x.id!==id);save();renderLoc();}}
+function delEntry(id){const a=document.activeElement;if(a&&a.blur)a.blur();commitLocEdits();if(confirm('למחוק מיקום זה?')){
+  const e=state.entries.find(x=>x.id===id);
+  if(e)logInv(e,+e.units||0,0,'manual','מיקום נמחק');
+  state.entries=state.entries.filter(x=>x.id!==id);save();renderLoc();}}
 function addEntry(){commitLocEdits();const id=Math.max(0,...state.entries.map(e=>e.id))+1;const free={r:0,c:0,lv:0};
   modalForm('מיקום חדש',[['category','קטגוריה','select',WINECATS],['type','סוג','select',TYPES],['vintage','בציר','number',''],['units','יחידות','number','0'],['label','תיוות','select',LABELS]],
-   v=>{const cp=capOf(v.category);state.entries.push({id,code:'חדש-'+id,origin:'',type:v.type,series:'',category:v.category,vintage:v.vintage,cooked:'',units:+v.units||0,label:v.label,capsule:cp[0],capcolor:cp[1],color:colorOf(v.category),notes:'',prow:free.r,pcol:free.c,plevel:free.lv});save();renderLoc();toast('נוסף');});}
+   v=>{const cp=capOf(v.category);const ne={id,code:'חדש-'+id,origin:'',type:v.type,series:'',category:v.category,vintage:v.vintage,cooked:'',units:+v.units||0,label:v.label,capsule:cp[0],capcolor:cp[1],color:colorOf(v.category),notes:'',prow:free.r,pcol:free.c,plevel:free.lv};
+     state.entries.push(ne);logInv(ne,0,ne.units,'manual','מיקום חדש');save();renderLoc();toast('נוסף');});}
 

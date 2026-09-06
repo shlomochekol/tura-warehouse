@@ -1,10 +1,11 @@
 /* ============ סנכרון ברמת שורה (במקום דריסת טבלה שלמה) ============ */
-const SB_TABLES=[['inventory','entries'],['shipments','shipments'],['labels','labels']];
+const SB_TABLES=[['inventory','entries'],['shipments','shipments'],['labels','labels'],['inv_log','invLog']];
 let _sbMap={},_sbRowSnap={};          // טבלה → מפתח → {rid,upd} / מפתח → JSON אחרון שסונכרן
 function ensureRowIds(){
   let ch=false;
   (state.shipments||[]).forEach(s=>{if(!s._id){s._id=Date.now()+Math.floor(Math.random()*1e6);ch=true;}});
   (state.labels||[]).forEach(l=>{if(!l.id){l.id=Date.now()+Math.floor(Math.random()*1e6);ch=true;}});
+  (state.invLog||[]).forEach(g=>{if(!g.id){g.id=Date.now()+Math.floor(Math.random()*1e6);ch=true;}});
   if(ch)localStorage.setItem(KEY,JSON.stringify(state));
 }
 function sbKey(table,o){
@@ -12,10 +13,16 @@ function sbKey(table,o){
   if(table==='shipments')return String(o._id||'');
   return String(o.id||'');
 }
-function sbArr(table){return table==='inventory'?(state.entries||[]):table==='shipments'?(state.shipments||[]):(state.labels||[]);}
+function sbArr(table){
+  if(table==='inventory')return state.entries||[];
+  if(table==='shipments')return state.shipments||[];
+  if(table==='inv_log')return state.invLog||[];
+  return state.labels||[];
+}
 function sbSetArr(table,arr){
   if(table==='inventory')state.entries=arr;
   else if(table==='shipments')state.shipments=arr;
+  else if(table==='inv_log')state.invLog=arr;
   else state.labels=arr;
 }
 async function sbFetchTable(table){
@@ -215,7 +222,7 @@ async function sbPushState(){
   }
   sbStateKV().forEach(([k,v])=>{_sbStateSnap[k]=JSON.stringify(v);});
 }
-function sbSnapshot(){return{inv:JSON.stringify(state.entries),ship:JSON.stringify(state.shipments),lbl:JSON.stringify(state.labels),st:JSON.stringify(sbStateKV())};}
+function sbSnapshot(){return{inv:JSON.stringify(state.entries),ship:JSON.stringify(state.shipments),lbl:JSON.stringify(state.labels),log:JSON.stringify(state.invLog||[]),st:JSON.stringify(sbStateKV())};}
 let _sbSnap=null,_sbTimer=null,_sbBusy=false,_sbQueued=false;
 async function sbPushChanged(silent){
   if(!sbLoggedIn())return;
@@ -227,6 +234,7 @@ async function sbPushChanged(silent){
     if(now.inv!==was.inv){const r=await sbSyncTable('inventory');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
     if(now.ship!==was.ship){const r=await sbSyncTable('shipments');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
     if(now.lbl!==was.lbl){const r=await sbSyncTable('labels');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
+    if(now.log!==was.log){const r=await sbSyncTable('inv_log');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
     if(now.st!==was.st)await sbPushState();
     if(mergedAny){                                   // הגיעו שינויים ממכשיר אחר — מוזגו
       localStorage.setItem(KEY,JSON.stringify(state));refresh();

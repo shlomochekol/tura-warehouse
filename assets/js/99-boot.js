@@ -35,7 +35,7 @@
       return out;
     };
   }
-  ['renderLoc','renderTasks','renderInv','renderShip','renderLabels','renderDash','renderMap']
+  ['renderLoc','renderTasks','renderInv','renderShip','renderLabels','renderDash','renderMap','renderInvLog']
     .forEach(n=>{ if(typeof window[n]==='function' && !window[n].__kept){
       const w=keepScroll(window[n]); w.__kept=true; window[n]=w; }});
   window.__keepScroll=keepScroll;

@@ -94,6 +94,7 @@ function dedApply(){
     const take=Math.round(+_dedPick[id]||0);if(take<=0)return;
     const before=Math.round(+e.units||0);
     e.units=Math.max(0,before-take);
+    logInv(e,before,e.units,'deduct',_dedShip.client||'');
     rec.push({id:e.id,take});                    /* שומרים כדי שאפשר יהיה לבטל */
     lines.push(`${e.category} ${e.vintage||''} · ${e.prow>0?e.prow+'-'+e.pcol:'ללא מיקום'} · ${before}→${e.units}`);
   });
@@ -134,7 +135,10 @@ function dedUndo(idx){
   rec.forEach(r=>{
     const e=(state.entries||[]).find(x=>x.id===r.id);
     if(!e){missing++;return;}
-    e.units=Math.round((+e.units||0)+(+r.take||0));back+=(+r.take||0);
+    const before=+e.units||0;
+    e.units=Math.round(before+(+r.take||0));
+    logInv(e,before,e.units,'return',s.client||'');
+    back+=(+r.take||0);
   });
   s.notes=(s.notes?s.notes+' ; ':'')+localDate()+': הוחזר למלאי — '+back.toLocaleString()+' יחידות';
   delete s.deducted;delete s.dedRec;

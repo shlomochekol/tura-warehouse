@@ -80,6 +80,7 @@ async function importCSV(which,ev){
       });
       if(!out.length){toast('לא נמצאו שורות');return;}
       if(!confirm('לייבא '+out.length+' מיקומים?\n\nהמלאי הנוכחי ('+state.entries.length+' פריטים) יוחלף.'))return;
+      logImportDiff(state.entries,out,'ייבוא Excel — מיקום במחסן');
       state.entries=out;save();refresh();closeModal();
       toast('יובאו '+out.length+' מיקומים — כל המסכים עודכנו');
     } else {
