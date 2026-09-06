@@ -62,6 +62,8 @@ Cloud tables (Supabase): `businesses`, `memberships`, `inventory`, `shipments`, 
 - Commit after every change that works — don't batch unrelated changes into one commit, and don't leave a working state uncommitted.
 - Before declaring a task finished, verify it in the browser and run `selfTest()` (see above) — passing this check is a precondition for saying "done", not an optional extra step.
 
+**חוק ברזל: תבצע שינויים ובדיקות אך ורק מקומית. לעולם אל תבצע git push ל-GitHub ללא אישור מפורש ממני.**
+
 ## Deployment
 
 No CI/CD. Deploy is manual: drag the project folder onto Netlify's Deploys tab (same URL persists). After any deploy, run the in-app self-test (🩺). Rollback is Netlify → Deploys → pick a previous deploy → Publish deploy.
