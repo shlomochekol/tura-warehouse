@@ -68,4 +68,6 @@ Cloud tables (Supabase): `businesses`, `memberships`, `inventory`, `shipments`, 
 
 ## Deployment
 
-No CI/CD. Deploy is manual: drag the project folder onto Netlify's Deploys tab (same URL persists). After any deploy, run the in-app self-test (🩺). Rollback is Netlify → Deploys → pick a previous deploy → Publish deploy.
+No CI/CD. Deploy is manual: drag the project folder onto Netlify's Deploys tab (same URL persists) — or, if Netlify is connected to a branch, push to that branch. After any deploy, run the in-app self-test (🩺). Rollback is Netlify → Deploys → pick a previous deploy → Publish deploy.
+
+**`sw.js` is a cache-first service worker (installed PWA)** — `fetch` returns whatever is in the `CACHE` bucket without hitting the network first. Any change to `index.html`, `assets/**`, or the icons is invisible to users until the `CACHE` constant at the top of `sw.js` is bumped (e.g. `mwe-v8` → `mwe-v9`): only a version bump makes `install`/`activate` refetch everything and drop the old cache. **Forgetting this step means a deployed fix looks broken** — the browser keeps serving stale JS even after Netlify has the new files live. Bump it in the same commit as any asset change, then a normal page reload (not necessarily a hard refresh) picks up the update, since the worker calls `skipWaiting()`/`clients.claim()`.
