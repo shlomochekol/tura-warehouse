@@ -16,10 +16,14 @@ function unitsPerBox(name){
 }
 /* parse the "פריטים" cell: lines like  12.0: הרטלנד 2024(7290019158646) */
 /* שורות שאינן מוצר פיזי — דמי משלוח, עמלות, הנחות וכד'.
-   "מבצע"/"מארז מבצע" מוחרג מהסינון כשיש ברקוד מלא (13 ספרות) — סימן שזה מוצר אמיתי ולא שורת מבצע גנרית. */
+   שורת "מבצע"/"מארז מבצע" או תבנית "11+1" מוחרגת מהסינון כשיש ברקוד מלא (13 ספרות) —
+   סימן שזה מוצר קטלוגי אמיתי (למשל "רוזה 2025 11+1") ולא שורת מבצע/בונוס גנרית ללא מק"ט. */
 function nonProductLine(name,barcode){
-  const promoWord=/(^|\s)(מבצע|מבצעי|מארז מבצע)(\s|$|\b)/.test(name);
-  if(promoWord&&/^\d{13}$/.test(String(barcode||'').trim()))return false;
+  const hasFullBarcode=/^\d{13}$/.test(String(barcode||'').trim());
+  const looksPromo=/(^|\s)(מבצע|מבצעי|מארז מבצע)(\s|$|\b)/.test(name)
+      || /\d+\s*\+\s*\d+/.test(name)                       /* 11+1, 5+1 וכד' */
+      || /^promo/i.test(name);
+  if(looksPromo&&hasFullBarcode)return false;
   return /(^|\s)(משלוח|משלוחים|דמי|עמלה|עמלת|הנחה|הנחת|זיכוי|החזר|שירות|טיפול|אריזה בתשלום|תשלום|מע"?מ|עגלה|קופון|מנוי|מבצע|מבצעי|מארז מבצע)(\s|$|\b)/.test(name)
       || /\d+\s*\+\s*\d+/.test(name)                       /* 11+1, 5+1 וכד' */
       || /^(משלוח|shipping|delivery|fee|discount|coupon|promo)/i.test(name);
