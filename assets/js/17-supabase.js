@@ -69,7 +69,7 @@ async function sbPull(){
     boardCats:state.boardCats,supplyItems:state.supplyItems,grid:state.grid};
   try{
   const [invT,shipT,lblT,logT,st]=await Promise.all([
-    sbFetchTable('inventory'),sbFetchTable('shipments'),sbFetchTable('labels'),sbFetchTable('inv_log'),
+    sbFetchTable('inventory'),sbFetchTable('shipments'),sbFetchTable('labels'),sbFetchTableSafe('inv_log'),
     sbRest('GET','app_state?select=key,value&business_id=eq.'+bid)
   ]);
   _sbMap.inventory=invT.map;_sbMap.shipments=shipT.map;_sbMap.labels=lblT.map;_sbMap.inv_log=logT.map;
@@ -81,7 +81,7 @@ async function sbPull(){
   if(logs&&logs.length)state.invLog=logs.map(r=>r.data); else if(!(state.invLog||[]).length)state.invLog=[];
   if((!ship||!ship.length)&&(state.shipments||[]).length)cloudEmpty=true;
   if((!lbl||!lbl.length)&&(state.labels||[]).length)cloudEmpty=true;
-  if((!logs||!logs.length)&&(state.invLog||[]).length)cloudEmpty=true;
+  if((!logs||!logs.length)&&(state.invLog||[]).length&&!_invLogMissing)cloudEmpty=true;
   const kv={};(st||[]).forEach(r=>kv[r.key]=r.value);
   if(kv.__ver)_sbVer=kv.__ver;              /* מסתנכרנים עם גרסת הענן */
   if(kv.settings)Object.assign(state.settings,kv.settings);

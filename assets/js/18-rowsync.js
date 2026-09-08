@@ -38,6 +38,18 @@ async function sbFetchTable(table){
   });
   return {map,list};
 }
+/* inv_log היא טבלה אופציונלית — קיימת רק אחרי הרצת inv_log_setup.sql בענן.
+   כל עוד היא חסרה, מתעלמים ממנה בשקט (במקום להפיל את כל הכניסה/סנכרון). */
+let _invLogMissing=false;
+function isMissingTableErr(e){return !!(e&&/could not find the table/i.test(e.message||''));}
+async function sbFetchTableSafe(table){
+  if(table==='inv_log'&&_invLogMissing)return{map:{},list:[]};
+  try{return await sbFetchTable(table);}
+  catch(e){
+    if(table==='inv_log'&&isMissingTableErr(e)){_invLogMissing=true;return{map:{},list:[]};}
+    throw e;
+  }
+}
 function sbRowSnapOf(table){return _sbRowSnap[table]||(_sbRowSnap[table]={});}
 function sbCaptureRows(table){
   const snap={};sbArr(table).forEach(o=>{const k=sbKey(table,o);if(k)snap[k]=JSON.stringify(o);});
@@ -234,7 +246,10 @@ async function sbPushChanged(silent){
     if(now.inv!==was.inv){const r=await sbSyncTable('inventory');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
     if(now.ship!==was.ship){const r=await sbSyncTable('shipments');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
     if(now.lbl!==was.lbl){const r=await sbSyncTable('labels');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
-    if(now.log!==was.log){const r=await sbSyncTable('inv_log');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
+    if(now.log!==was.log&&!_invLogMissing){
+      try{const r=await sbSyncTable('inv_log');mergedAny=mergedAny||r.merged;ops+=r.add+r.upd+r.del;}
+      catch(e){if(isMissingTableErr(e))_invLogMissing=true;else throw e;}
+    }
     if(now.st!==was.st)await sbPushState();
     if(mergedAny){                                   // הגיעו שינויים ממכשיר אחר — מוזגו
       localStorage.setItem(KEY,JSON.stringify(state));refresh();
