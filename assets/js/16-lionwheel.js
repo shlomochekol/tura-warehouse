@@ -15,8 +15,11 @@ function unitsPerBox(name){
   return hit?(+hit.units||12):(+br.def||12);
 }
 /* parse the "פריטים" cell: lines like  12.0: הרטלנד 2024(7290019158646) */
-/* שורות שאינן מוצר פיזי — דמי משלוח, עמלות, הנחות וכד' */
-function nonProductLine(name){
+/* שורות שאינן מוצר פיזי — דמי משלוח, עמלות, הנחות וכד'.
+   "מבצע"/"מארז מבצע" מוחרג מהסינון כשיש ברקוד מלא (13 ספרות) — סימן שזה מוצר אמיתי ולא שורת מבצע גנרית. */
+function nonProductLine(name,barcode){
+  const promoWord=/(^|\s)(מבצע|מבצעי|מארז מבצע)(\s|$|\b)/.test(name);
+  if(promoWord&&/^\d{13}$/.test(String(barcode||'').trim()))return false;
   return /(^|\s)(משלוח|משלוחים|דמי|עמלה|עמלת|הנחה|הנחת|זיכוי|החזר|שירות|טיפול|אריזה בתשלום|תשלום|מע"?מ|עגלה|קופון|מנוי|מבצע|מבצעי|מארז מבצע)(\s|$|\b)/.test(name)
       || /\d+\s*\+\s*\d+/.test(name)                       /* 11+1, 5+1 וכד' */
       || /^(משלוח|shipping|delivery|fee|discount|coupon|promo)/i.test(name);
@@ -35,7 +38,8 @@ function parseItemsCell(cell){
       qty=Math.round(parseFloat(m[1])||0);name=m[2].trim();
     }
     if(!qty||!name){skipped.push(line);return;}
-    if(nonProductLine(name))return;                      // דמי משלוח וכד' — לא מדבקה
+    if(nonProductLine(name,bc))return;                    // דמי משלוח וכד' — לא מדבקה
+    if(name.indexOf("דולצ'טו")>=0)name+=' — כולל מארז יחיד';
     out.push({qty,name,barcode:bc});
   });
   if(skipped.length)console.warn('שורות פריט שלא זוהו:',skipped);
