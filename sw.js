@@ -1,4 +1,4 @@
-const CACHE='mwe-v9';
+const CACHE='mwe-v10';
 const ASSETS=['./',
   'index.html',
   'manifest.webmanifest',

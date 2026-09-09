@@ -43,7 +43,8 @@ function parseItemsCell(cell){
     }
     if(!qty||!name){skipped.push(line);return;}
     if(nonProductLine(name,bc))return;                    // דמי משלוח וכד' — לא מדבקה
-    if(name.indexOf("דולצ'טו")>=0)name+=' — כולל מארז יחיד';
+    /* "דולצ'טו" — לא סומכים על תו הגרש המדויק (LionWheel לפעמים מייצא ׳ במקום ', או בלי גרש בכלל) */
+    if(name.indexOf('דולצ')>=0)name+=' — כולל מארז יחיד';
     out.push({qty,name,barcode:bc});
   });
   if(skipped.length)console.warn('שורות פריט שלא זוהו:',skipped);
