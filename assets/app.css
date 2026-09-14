@@ -401,11 +401,11 @@ td.bcell{white-space:nowrap}
 .pick-row.done .pick-name{text-decoration:line-through;color:var(--muted)}
 .pick-check{flex-shrink:0;width:30px;height:30px;border:2px solid var(--line);border-radius:8px;display:grid;place-items:center;font-weight:900;color:#fff;font-size:17px}
 .pick-row.done .pick-check{background:var(--ok);border-color:var(--ok)}
-.pick-body{flex:1;min-width:0}
-.pick-loc{font-size:11px;font-weight:800;color:var(--navy)}
-.pick-name{font-size:14px;font-weight:600;white-space:normal;word-break:break-word}
-.pick-clients{font-size:10.5px;color:var(--muted);margin-top:2px}
-.pick-qty{flex-shrink:0;font-size:20px;font-weight:800;color:var(--wine);min-width:34px;text-align:center}
+.pick-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.pick-loc{align-self:flex-start;font-size:11px;font-weight:800;color:#fff;background:var(--navy);padding:2px 8px;border-radius:6px;white-space:nowrap;line-height:1.5}
+.pick-name{font-size:15px;font-weight:700;white-space:normal;word-break:break-word;line-height:1.3}
+.pick-clients{font-size:11px;color:var(--muted)}
+.pick-qty{flex-shrink:0;font-size:22px;font-weight:800;color:var(--wine);min-width:38px;text-align:center}
 @media(max-width:760px){
   .pick-row{padding:12px 10px;min-height:52px}
   .pick-check{width:34px;height:34px;font-size:19px}

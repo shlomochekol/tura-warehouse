@@ -74,12 +74,16 @@ function pickingModalHTML(){
      const checked=!!prog[pickKey(date,r.name)];
      const locTxt=r.locs.length?r.locs.slice(0,3).map(l=>l.prow+'-'+l.pcol).join(', '):'ללא מיקום';
      const nameEsc=r.name.replace(/'/g,"\\'");
+     const clientCount=Object.keys(r.clients).length;
+     const clientFull=Object.entries(r.clients).map(([c,q])=>c+' ('+q+')').join(' · ');
+     /* פירוט לקוחות מלא רק ב-title (מוצג בהחזקה/ריחוף) — ברשימה עצמה מציגים
+        רק מספר לקוחות, כדי שהכרטיס יישאר קריא תוך כדי הליקוט בפועל */
      return `<div class="pick-row ${checked?'done':''} ${r.locs.length?'':'warn-row'}" onclick="togglePicked('${date.replace(/'/g,"\\'")}','${nameEsc}')">
        <div class="pick-check">${checked?'✓':''}</div>
        <div class="pick-body">
-         <div class="pick-loc">${esc(locTxt)}</div>
+         <span class="pick-loc">${esc(locTxt)}</span>
          <div class="pick-name">${esc(r.name)}</div>
-         <div class="pick-clients">${Object.entries(r.clients).map(([c,q])=>esc(c)+' ('+q+')').join(' · ')}</div>
+         <div class="pick-clients" title="${esc(clientFull)}">${clientCount} ${clientCount===1?'לקוח':'לקוחות'}</div>
        </div>
        <div class="pick-qty">${esc(r.qty)}</div>
      </div>`;
