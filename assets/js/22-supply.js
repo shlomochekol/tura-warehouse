@@ -50,7 +50,7 @@ function openSupplyItems(){
    <table class="itemtbl"><tbody>
    ${items.map((it,i)=>`<tr><td><input value="${esc(it)}" onchange="renameSupplyItem(${i},this.value)"></td>
      <td style="width:86px">${i>0?`<button class="btn ghost sm" onclick="moveSupplyItem(${i},-1)">↑</button>`:''}${i<items.length-1?`<button class="btn ghost sm" onclick="moveSupplyItem(${i},1)">↓</button>`:''}</td>
-     <td style="width:34px"><button class="del" onclick="delSupplyItem(${i})">✕</button></td></tr>`).join('')}
+     <td style="width:34px"><button class="del" aria-label="מחיקה" onclick="delSupplyItem(${i})">✕</button></td></tr>`).join('')}
    </tbody></table>
    <button class="btn ghost sm" onclick="addSupplyItem()">+ הוסף פריט</button>
    <div class="actions"><button class="btn" onclick="closeModal();renderTasks()">סגור</button></div>`;

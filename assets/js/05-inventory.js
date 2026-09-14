@@ -76,7 +76,7 @@ function renderShip(){
     h+=`<td>${s.deducted
       ?`<button class="btn ghost sm" title="ירד מהמלאי — הקש כדי להחזיר" onclick="dedUndo(${i})">↩ החזר</button>`
       :`<button class="btn ghost sm" title="הורד מהמלאי" onclick="openDeduct(${i})">📉</button>`}
-      <button class="del" onclick="delShip(${i})">✕</button></td></tr>`;});
+      <button class="del" aria-label="מחיקה" onclick="delShip(${i})">✕</button></td></tr>`;});
   // totals row aligned under columns: date,kind,client,category,cook,vintage,units,boxes,pallets,taste,capsule,lang,status,labeldate,shipdate,notes
   /* חישוב עמיד: כמה עמודות לפני 'יחידות' וכמה אחרי 'סעימות' */
   const _nc=SHCOLS.length+1;

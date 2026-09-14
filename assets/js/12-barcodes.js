@@ -205,7 +205,7 @@ function openBarcodeManager(){
      <td>${esc(x.cat||'')}</td><td>${esc(x.v||'')}</td><td>${esc(x.t||'')}</td><td>${esc(x.n)}</td>
      <td><input value="${esc(x.bc||'')}" placeholder="—" style="width:150px;font-family:monospace"
         onchange="setBarcodeFor('${x.k.replace(/'/g,"\\\\'")}',this.value)">${x.custom?' <span class="bctag" title="הוזן ידנית">✎</span>':''}${x.onItem?' <span class="bctag" title="ברקוד על הפריט עצמו">📌</span>':''}</td>
-     <td>${x.custom?`<button class="del" title="חזור לקטלוג" onclick="clearBarcodeFor('${x.k.replace(/'/g,"\\\\'")}')">↺</button>`:''}</td></tr>`).join('')}
+     <td>${x.custom?`<button class="del" title="חזור לקטלוג" aria-label="חזור לקטלוג" onclick="clearBarcodeFor('${x.k.replace(/'/g,"\\\\'")}')">↺</button>`:''}</td></tr>`).join('')}
    ${L.length>200?`<tr><td colspan=6 style="color:var(--muted)">…ועוד ${L.length-200}</td></tr>`:''}
    </tbody></table></div>
    <div class="actions"><button class="btn" onclick="closeModal();refresh()">סגור</button></div>`;

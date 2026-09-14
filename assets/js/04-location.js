@@ -70,7 +70,7 @@ function openCapSettings(){
         <td><input value="${esc(n)}" style="width:80px" onchange="renameCapNum('${String(n).replace(/'/g,"\\'")}',this.value)"></td>
         <td>${colorSel(capColorOfNum(n),`setCapColor('${String(n).replace(/'/g,"\\'")}',this.value)`)}</td>
         <td><span class="cap" style="${capStyle(capColorOfNum(n))}">${esc(n)}</span></td>
-        <td><button class="del" onclick="delCapNum('${String(n).replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('')}
+        <td><button class="del" aria-label="מחיקה" onclick="delCapNum('${String(n).replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('')}
       </tbody></table>
       <button class="btn ghost sm" onclick="addCapNum()">+ הוסף קפסולה</button>
 
@@ -81,7 +81,7 @@ function openCapSettings(){
         <td><input type="color" value="${esc(cc[n].bg)}" onchange="setCapColorDef('${n.replace(/'/g,"\\'")}','bg',this.value)"></td>
         <td><input type="color" value="${esc(cc[n].fg)}" onchange="setCapColorDef('${n.replace(/'/g,"\\'")}','fg',this.value)"></td>
         <td><span class="cap" style="${capStyle(n)}">דוגמה</span></td>
-        <td><button class="del" onclick="delCapColorDef('${n.replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('')}
+        <td><button class="del" aria-label="מחיקה" onclick="delCapColorDef('${n.replace(/'/g,"\\'")}')">✕</button></td></tr>`).join('')}
       </tbody></table>
       <button class="btn ghost sm" onclick="addCapColorDef()">+ הוסף צבע</button>
     </div>
@@ -101,7 +101,7 @@ function openCapSettings(){
         <td><input type="color" value="${esc(pal[k].bg)}" onchange="setCatPalPart('${k}','bg',this.value)"></td>
         <td><input type="color" value="${esc(pal[k].fg)}" onchange="setCatPalPart('${k}','fg',this.value)"></td>
         <td><span class="tag" style="${colorStyle(k)}">דוגמה</span></td>
-        <td><button class="del" onclick="delCatPal('${k}')">✕</button></td></tr>`).join('')}
+        <td><button class="del" aria-label="מחיקה" onclick="delCatPal('${k}')">✕</button></td></tr>`).join('')}
       </tbody></table>
       <button class="btn ghost sm" onclick="addCatPal()">+ הוסף צבע קטגוריה</button>
     </div>
@@ -182,7 +182,7 @@ function locRowHTML(e){
      <td><select class="capsel" style="${capStyle(cap[1])}" onchange="setCapsule(${e.id},this.value)">${capNums().map(n=>`<option ${cap[0]===n?'selected':''}>${esc(n)}</option>`).join('')}</select></td>
      <td><select onchange="setF(${e.id},'label',this.value)">${LABELS.map(l=>`<option ${e.label===l?'selected':''}>${esc(l)}</option>`).join('')}</select></td>
      <td class="bcell">${(()=>{const b=barcodeOf(e);return b?`<span class="bctag" onclick="openBarcodeResult('${b}')" title="הצג היכן במחסן">${esc(b)}</span>`:'<span class="bcnone">—</span>';})()}</td><td><input value="${esc(e.notes||'')}" onchange="setF(${e.id},'notes',this.value)" data-eid="${esc(e.id)}" data-f="notes"></td>
-     <td><button class="del" onmousedown="if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()" onclick="delEntry(${e.id})">✕</button></td></tr>`;
+     <td><button class="del" aria-label="מחיקה" onmousedown="if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()" onclick="delEntry(${e.id})">✕</button></td></tr>`;
 }
 function renderLocRow(id){
   const el=document.querySelector('#v-loc [data-eid="'+id+'"]');
@@ -244,7 +244,9 @@ function renderLoc(){
   const FIRST=120;
   const firstRows=rows.slice(0,FIRST),restRows=rows.slice(FIRST);
   firstRows.forEach(e=>{h+=locRowHTML(e);});
-  h+=`</tbody></table></div><div class="hint">${rows.length} מתוך ${state.entries.length} מיקומים</div></div>`;
+  h+=`</tbody></table></div>
+   ${restRows.length?`<div id="loc-loading" class="loading-more"><span class="dot"></span><span class="dot"></span><span class="dot"></span> טוען עוד ${restRows.length} שורות…</div>`:''}
+   <div class="hint">${rows.length} מתוך ${state.entries.length} מיקומים</div></div>`;
   /* שומרים את מיקום הגלילה — הטעינה המדורגת מקצרת זמנית את הטבלה
      והדפדפן "מהדק" את הגלילה לגובה הנוכחי. משחזרים אחרי כל מנה. */
   const _prevWrap=document.querySelector('#v-loc .tablewrap');
@@ -298,6 +300,7 @@ function renderLoc(){
         const pad=w?w.querySelector('tr._pad'):null;
         if(pad){const y=w.scrollTop;pad.remove();
           if(w.scrollHeight-w.clientHeight>=y)w.scrollTop=y;}
+        const loader=document.getElementById('loc-loading');if(loader)loader.remove();
       }
     };
     schedule(chunk);

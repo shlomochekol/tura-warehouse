@@ -263,11 +263,11 @@ function tkOpen(id,keep){
      <div class="tk-subs">${(t.subs||[]).map((sx,i)=>`<div class="tk-subrow">
         <input type="checkbox" ${sx.done?'checked':''} onchange="tkSubToggle(${id},${i})">
         <input value="${esc(sx.t)}" class="${sx.done?'sdone':''}" onchange="tkSubText(${id},${i},this.value)">
-        <button class="del" onclick="tkSubDel(${id},${i})">✕</button></div>`).join('')}</div>
+        <button class="del" aria-label="מחיקה" onclick="tkSubDel(${id},${i})">✕</button></div>`).join('')}</div>
      <button class="btn ghost sm" onclick="tkSubAdd(${id})">+ הוסף תת-משימה</button></div>
    <div class="fld"><label>הערות</label><textarea rows="3" onchange="tkSet(${id},'notes',this.value)">${esc(t.notes||'')}</textarea></div>
    <div class="fld"><label>תמונות</label>
-     <div class="tk-photos">${(t.photos||[]).map((src,i)=>`<div class="tk-phw"><img src="${src}"><button class="del" onclick="tkPhotoDel(${id},${i})">✕</button></div>`).join('')}</div>
+     <div class="tk-photos">${(t.photos||[]).map((src,i)=>`<div class="tk-phw"><img src="${src}"><button class="del" aria-label="מחיקה" onclick="tkPhotoDel(${id},${i})">✕</button></div>`).join('')}</div>
      <input type="file" accept="image/*" capture="environment" onchange="tkPhotoAdd(${id},event)"></div>
    <details class="tk-log"><summary>יומן פעילות (${(t.log||[]).length})</summary>
      ${(t.log||[]).slice().reverse().map(l=>`<div class="tk-logrow"><span>${new Date(l.t).toLocaleString('he-IL')}</span> ${esc(l.a)}</div>`).join('')||'—'}</details>

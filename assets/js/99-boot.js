@@ -108,5 +108,5 @@ window.addEventListener('load',function(){
     const f=selfTest().filter(x=>x.pass===false);
     if(f.length){console.warn('בדיקת תקינות נכשלה:',f);toast('⚠ בדיקת תקינות מצאה '+f.length+' תקלות — ראה הגדרות מתקדמות');}
   }catch(e){}},2500);
-  if(typeof sbLoggedIn!=='function')return;if(sbLoggedIn()){var lb=document.getElementById('logoutBtn');if(lb)lb.style.display='inline-block';sbMaybeDailyBackup();sbLoadPlan();sbPull().catch(function(e){if(e&&e.message==='__RELOGIN__'){sbRenderLogin();sbShowLogin();}else{sbSyncMsg('שגיאת ענן — '+((e&&e.message)||''));}});}else{sbRenderLogin();sbShowLogin();}});
+  if(typeof sbLoggedIn!=='function')return;if(sbLoggedIn()){var lb=document.getElementById('logoutBtn');if(lb)lb.style.display='inline-block';sbMaybeDailyBackup();sbLoadPlan();sbPull().catch(function(e){if(e&&e.message==='__RELOGIN__'){sbRenderLogin();sbShowLogin();}else{sbSyncMsg('שגיאת ענן — '+sbFriendlyError(e));}});}else{sbRenderLogin();sbShowLogin();}});
 

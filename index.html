@@ -47,7 +47,7 @@
   <section class="view" id="v-dash"></section>
   <section class="view" id="v-labels"></section>
 </main>
-<div class="modal" id="modal"><div class="box" id="modalbox"></div></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="box" id="modalbox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="assets/lib/qrcode.js"></script>
@@ -82,7 +82,13 @@
 <script src="assets/js/99-boot.js"></script>
 <script>
 /* PWA: offline + install */
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(reg=>{
+    /* בודקים אקטיבית אם יש sw.js חדש בכל חזרה למסך — כדי שעדכון קוד יתפוס מהר,
+       לא רק לפי הבדיקה התקופתית של הדפדפן */
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{});});
+  }).catch(()=>{}));
+}
 let deferredPrompt=null;
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;

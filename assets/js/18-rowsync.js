@@ -42,6 +42,19 @@ async function sbFetchTable(table){
    כל עוד היא חסרה, מתעלמים ממנה בשקט (במקום להפיל את כל הכניסה/סנכרון). */
 let _invLogMissing=false;
 function isMissingTableErr(e){return !!(e&&/could not find the table/i.test(e.message||''));}
+/* מתרגם שגיאות Supabase/רשת גולמיות (קוד סטטוס + טקסט טכני מה-API) להודעה עברית ברורה —
+   כדי שמשתמש לא יראה עוד טקסט כמו "(404) Could not find the table 'public.inv_log'..." */
+function sbFriendlyError(e){
+  const msg=(e&&e.message)||'';
+  if(msg==='__RELOGIN__')return 'פג תוקף ההתחברות — יש להתחבר מחדש.';
+  if(/could not find the table/i.test(msg))return 'טבלה חסרה בענן (כנראה שצריך להריץ סקריפט הקמה ב-Supabase) — המערכת ממשיכה לעבוד מקומית.';
+  if(/row-level security|permission denied|rls/i.test(msg))return 'אין הרשאה לפעולה הזו בענן (בדוק את מדיניות ה-RLS בהגדרות Supabase).';
+  if(/failed to fetch|networkerror|load failed/i.test(msg))return 'אין חיבור לאינטרנט כרגע — הנתונים ממשיכים להישמר במכשיר, ויסתנכרנו כשהחיבור יחזור.';
+  if(/^\(401\)|invalid.*token|jwt/i.test(msg))return 'ההתחברות פגה — יש להתחבר מחדש.';
+  if(/^\(429\)/.test(msg))return 'יותר מדי פניות לענן בזמן קצר — נסה שוב בעוד רגע.';
+  if(/^\(5\d\d\)/.test(msg))return 'שגיאת שרת בענן — נסה שוב בעוד רגע.';
+  return msg||'שגיאה לא ידועה';
+}
 async function sbFetchTableSafe(table){
   if(table==='inv_log'&&_invLogMissing)return{map:{},list:[]};
   try{return await sbFetchTable(table);}
@@ -146,7 +159,8 @@ async function sbReplace(table,arr){
 function sbStateKV(){return[
   ['settings',{title:state.settings.title,sub:state.settings.sub,labelTpl:state.settings.labelTpl,boxRules:state.settings.boxRules,catUnits:state.settings.catUnits,catPal:state.settings.catPal,capNums:state.settings.capNums,capColorMap:state.settings.capColorMap,capCatMap:state.settings.capCatMap,capColors:state.settings.capColors,catPalette:state.settings.catPalette,catColorMap:state.settings.catColorMap,barcodes:state.settings.barcodes}],
   ['tasks',state.tasks],['tasks2',state.tasks2||[]],['board',state.board||{}],['boardCats',state.boardCats||[]],['grid',state.grid],['taskCats',state.taskCats],
-  ['weekLabels',state.weekLabels],['dayCats',state.dayCats||{}],['customCats',state.customCats||[]],['routes',state.routes||[]],['supply',state.supply||[]],['supplyItems',state.supplyItems||[]]];}
+  ['weekLabels',state.weekLabels],['dayCats',state.dayCats||{}],['customCats',state.customCats||[]],['routes',state.routes||[]],['supply',state.supply||[]],['supplyItems',state.supplyItems||[]],
+  ['pickingProgress',state.pickingProgress||{}]];}
 let _sbStateSnap={};                       // מה שנשלח בפעם האחרונה, לכל מפתח
 /* ממזג רשימת משימות: לפי מזהה, המאוחר מנצח; פריט חדש בצד השני מתווסף */
 function mergeTasks(mine,theirs,lastSyncedJson){
@@ -261,7 +275,7 @@ async function sbPushChanged(silent){
     if(!silent)toast('נשמר בענן ✓');
   }catch(e){
     if(e.message==='__RELOGIN__'){sbSyncMsg('נדרשת כניסה מחדש');toast('פג תוקף ההתחברות — התחבר מחדש');sbRenderLogin();sbShowLogin();}
-    else{sbSyncMsg('שגיאת ענן');toast('שמירה נכשלה: '+e.message);}
+    else{sbSyncMsg('שגיאת ענן');toast('שמירה נכשלה: '+sbFriendlyError(e));}
   }
   finally{_sbBusy=false;if(_sbQueued){_sbQueued=false;setTimeout(()=>sbPushChanged(true),200);}}
 }
@@ -298,7 +312,7 @@ async function sbSubmitLogin(){
     document.getElementById('logoutBtn').style.display='inline-block';
     sbMaybeDailyBackup();sbLoadPlan();
     toast('שלום '+email);
-  }catch(e){msg.textContent=e.message;}
+  }catch(e){msg.textContent=sbFriendlyError(e);}
   finally{btn.disabled=false;}
 }
 

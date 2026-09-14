@@ -94,7 +94,7 @@ function bEditCats(){
    <table class="itemtbl"><tbody>
    ${cats.map((c,i)=>`<tr><td><input value="${esc(c)}" onchange="bRenameCat(${i},this.value)"></td>
      <td style="width:90px">${i>0?`<button class="btn ghost sm" onclick="bMoveCat(${i},-1)">↑</button>`:''}${i<cats.length-1?`<button class="btn ghost sm" onclick="bMoveCat(${i},1)">↓</button>`:''}</td>
-     <td style="width:36px"><button class="del" onclick="bDelCat(${i})">✕</button></td></tr>`).join('')}
+     <td style="width:36px"><button class="del" aria-label="מחיקה" onclick="bDelCat(${i})">✕</button></td></tr>`).join('')}
    </tbody></table>
    <button class="btn ghost sm" onclick="bAddCat()">+ הוסף קטגוריה</button>
    <div class="actions"><button class="btn" onclick="closeModal();renderTasks()">סגור</button>

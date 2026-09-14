@@ -41,30 +41,68 @@ function matchLocations(prodName){
     .sort((a,b)=>(a.prow-b.prow)||(a.pcol-b.pcol))
     .map(e=>({prow:e.prow,pcol:e.pcol,plevel:e.plevel,units:+e.units||0,type:e.type,label:e.label}));
 }
+/* התקדמות ליקוט — מסומן לפי תאריך+שם מוצר, נשמר ומסתנכרן כמו שאר ההגדרות
+   (כך שאפשר לעקוב מהמשרד אחרי מה שכבר נלקט, ולהמשיך מכל מכשיר) */
+function pickingProgress(){if(!state.pickingProgress||typeof state.pickingProgress!=='object')state.pickingProgress={};return state.pickingProgress;}
+function pickKey(date,name){return date+'|'+name;}
+let _pickState=null;
 function openPicking(){
   const bs=(state.labels||[]).filter(b=>batchTotal(b)>0);
   if(!bs.length){toast('אין מסלול פעיל');return;}
   const rows=pickingRows(bs);
   const date=bs[0].date||tkToday();
-  const box=document.getElementById('modalbox');box.className='box wide';
+  _pickState={date,rows};
+  const box=document.getElementById('modalbox');box.className='box wide picking-modal';
+  box.innerHTML=pickingModalHTML();
+  document.getElementById('modal').classList.add('open');
+}
+/* רשימת כרטיסים גדולים למגע — לא טבלה — כדי שאפשר יהיה לסמן פריט תוך כדי הליקוט בטלפון */
+function pickingModalHTML(){
+  const {date,rows}=_pickState;
+  const bs=(state.labels||[]).filter(b=>batchTotal(b)>0);
   const totBoxes=bs.reduce((t,b)=>t+batchTotal(b),0);
   const noLoc=rows.filter(r=>!r.locs.length).length;
-  box.innerHTML=`<h3>דף ליקוט · ${esc(date)}</h3>
-   <div class="hint">כל המוצרים של המסלול, <b>ממוינים לפי מיקום במחסן</b> — כך אוספים במסלול אחד. ${noLoc?('<b style="color:#c33">'+noLoc+' מוצרים ללא מיקום</b> — בדוק אותם ידנית.'):''}</div>
-   <div class="kpis k2" style="margin:10px 0">
-     ${kpi('לקוחות',bs.length,'','var(--navy)')}${kpi('ארגזים',totBoxes,'','var(--gold-d)')}</div>
-   <div class="tablewrap" style="max-height:320px"><table><thead><tr>
-     <th>מיקום</th><th>מוצר</th><th>כמות</th><th>לקוחות</th><th>✓</th></tr></thead><tbody>
-   ${rows.map(r=>`<tr class="${r.locs.length?'':'warn-row'}">
-     <td><b>${r.locs.length?r.locs.slice(0,3).map(l=>l.prow+'-'+l.pcol).join(', '):'—'}</b></td>
-     <td>${esc(r.name)}</td><td><b>${esc(r.qty)}</b></td>
-     <td style="font-size:11px;color:var(--muted)">${Object.entries(r.clients).map(([c,q])=>esc(c)+' ('+q+')').join(' · ')}</td>
-     <td>☐</td></tr>`).join('')}
-   </tbody></table></div>
+  const prog=pickingProgress();
+  const doneCount=rows.filter(r=>prog[pickKey(date,r.name)]).length;
+  const pct=rows.length?Math.round(doneCount/rows.length*100):0;
+  return `<h3>דף ליקוט · ${esc(date)}</h3>
+   <div class="hint">כל המוצרים של המסלול, <b>ממוינים לפי מיקום במחסן</b> — לגעת בשורה כדי לסמן שנלקטה. ${noLoc?('<b style="color:#c33">'+noLoc+' מוצרים ללא מיקום</b> — בדוק אותם ידנית.'):''}</div>
+   <div class="pick-progress"><div class="pick-progress-bar" style="width:${pct}%"></div></div>
+   <div class="hint" style="margin:4px 0 10px">נלקטו <b>${doneCount}</b> מתוך <b>${rows.length}</b> מוצרים · ${bs.length} לקוחות · ${totBoxes} ארגזים</div>
+   <div class="pick-list">
+   ${rows.map(r=>{
+     const checked=!!prog[pickKey(date,r.name)];
+     const locTxt=r.locs.length?r.locs.slice(0,3).map(l=>l.prow+'-'+l.pcol).join(', '):'ללא מיקום';
+     const nameEsc=r.name.replace(/'/g,"\\'");
+     return `<div class="pick-row ${checked?'done':''} ${r.locs.length?'':'warn-row'}" onclick="togglePicked('${date.replace(/'/g,"\\'")}','${nameEsc}')">
+       <div class="pick-check">${checked?'✓':''}</div>
+       <div class="pick-body">
+         <div class="pick-loc">${esc(locTxt)}</div>
+         <div class="pick-name">${esc(r.name)}</div>
+         <div class="pick-clients">${Object.entries(r.clients).map(([c,q])=>esc(c)+' ('+q+')').join(' · ')}</div>
+       </div>
+       <div class="pick-qty">${esc(r.qty)}</div>
+     </div>`;
+   }).join('')}
+   </div>
    <div class="actions">
+     <button class="btn ghost sm" onclick="resetPicking()">איפוס סימונים</button>
      <button class="btn" onclick="printPicking()">🖨️ הדפס דף ליקוט</button>
      <button class="btn ghost" onclick="closeModal()">סגור</button></div>`;
-  document.getElementById('modal').classList.add('open');
+}
+function togglePicked(date,name){
+  const p=pickingProgress(),k=pickKey(date,name);
+  if(p[k])delete p[k];else p[k]=true;
+  save();
+  if(_pickState)document.getElementById('modalbox').innerHTML=pickingModalHTML();
+}
+function resetPicking(){
+  if(!_pickState)return;
+  if(!confirm('לאפס את כל הסימונים בדף הליקוט?'))return;
+  const p=pickingProgress();
+  _pickState.rows.forEach(r=>{delete p[pickKey(_pickState.date,r.name)];});
+  save();
+  document.getElementById('modalbox').innerHTML=pickingModalHTML();
 }
 function printPicking(){
   const bs=(state.labels||[]).filter(b=>batchTotal(b)>0);
@@ -128,7 +166,7 @@ function openRoutes(){
      ${R.map(r=>`<tr><td><b>${esc(r.date)}</b></td><td>${esc(r.clients)}</td><td>${esc(r.boxes)}</td>
        <td style="font-size:11px;color:var(--muted)">${new Date(r.savedAt).toLocaleDateString('he-IL')}</td>
        <td><button class="btn sm" onclick="loadRoute(${r.id})">טען</button>
-           <button class="del" onclick="delRoute(${r.id})">✕</button></td></tr>`).join('')}
+           <button class="del" aria-label="מחיקה" onclick="delRoute(${r.id})">✕</button></td></tr>`).join('')}
      </tbody></table></div>`:'<div class="hint" style="margin-top:10px">אין עדיין מסלולים שמורים.</div>'}
    <div class="actions"><button class="btn ghost" onclick="saveRoute();openRoutes()">שמור את המסלול הנוכחי</button>
      <button class="btn" onclick="closeModal()">סגור</button></div>`;

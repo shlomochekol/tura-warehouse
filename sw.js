@@ -37,26 +37,31 @@ const ASSETS=['./',
   'icons/favicon-32.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
+/* stale-while-revalidate: כל בקשה מקבלת תשובה מיידית מהמטמון (אם יש),
+   ובמקביל — תמיד — נשלפת גם גרסה טרייה מהרשת ברקע ומוחלפת במטמון.
+   כך עדכון קוד "מתרפא לבד" בטעינה הבאה בלי לדרוש לזכור להעלות את מספר הגרסה
+   ב-CACHE; מעבר גרסה עדיין שימושי רק כשרשימת ASSETS עצמה משתנה. */
 self.addEventListener('fetch',e=>{
   const req=e.request; if(req.method!=='GET')return;
   e.respondWith((async()=>{
-    const cached=await caches.match(req);
-    if(cached)return cached;
-    try{
-      const res=await fetch(req);
+    const cache=await caches.open(CACHE);
+    const cached=await cache.match(req);
+    const fresh=fetch(req).then(res=>{
       try{const u=new URL(req.url);
-        if(u.origin===location.origin||u.hostname.includes('fonts.g')){
-          const cl=res.clone();caches.open(CACHE).then(c=>c.put(req,cl));}
+        if(res&&res.ok&&(u.origin===location.origin||u.hostname.includes('fonts.g')))
+          cache.put(req,res.clone());
       }catch(_){}
       return res;
-    }catch(err){
-      /* לא במטמון ואין רשת — לניווט מחזירים את דף הבית, אחרת תשובה תקינה */
-      if(req.mode==='navigate'){
-        const home=await caches.match('index.html')||await caches.match('./');
-        if(home)return home;
-      }
-      return new Response('אין חיבור לרשת והמשאב אינו שמור במטמון.',
-        {status:503,statusText:'Offline',headers:{'Content-Type':'text/plain; charset=utf-8'}});
+    }).catch(()=>null);
+    if(cached){fresh;return cached;}                 /* מחזירים מיד, מעדכנים ברקע */
+    const res=await fresh;
+    if(res)return res;
+    /* לא במטמון ואין רשת — לניווט מחזירים את דף הבית, אחרת תשובת שגיאה */
+    if(req.mode==='navigate'){
+      const home=await cache.match('index.html')||await cache.match('./');
+      if(home)return home;
     }
+    return new Response('אין חיבור לרשת והמשאב אינו שמור במטמון.',
+      {status:503,statusText:'Offline',headers:{'Content-Type':'text/plain; charset=utf-8'}});
   })());
 });

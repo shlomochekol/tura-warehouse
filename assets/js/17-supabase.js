@@ -93,6 +93,10 @@ async function sbPull(){
   if(kv.taskCats)state.taskCats=kv.taskCats;
   if(kv.weekLabels)state.weekLabels=kv.weekLabels;
   if(kv.dayCats)state.dayCats=kv.dayCats;
+  /* מיזוג ולא דריסה — כמה מכשירים יכולים לסמן ליקוט בו-זמנית (מלקט בטלפון + משרד עוקב);
+     איחוד השדות במקום להחליף מונע "ביטול" סימון שנעשה במכשיר אחר ברגע האחרון */
+  if(kv.pickingProgress&&typeof kv.pickingProgress==='object')
+    state.pickingProgress=Object.assign({},kv.pickingProgress,state.pickingProgress);
   if(kv.customCats){state.customCats=kv.customCats;loadCustomCats();}
   if(Array.isArray(kv.routes))state.routes=kv.routes;
   if(Array.isArray(kv.supply))state.supply=kv.supply;

@@ -16,7 +16,7 @@ async function sbBackupNow(silent){
     localStorage.setItem('sb_lastbk',new Date().toISOString());
     if(!silent)toast('גיבוי נשמר בענן ✓');
     return true;
-  }catch(e){if(!silent)toast('הגיבוי נכשל: '+e.message);return false;}
+  }catch(e){if(!silent)toast('הגיבוי נכשל: '+sbFriendlyError(e));return false;}
 }
 function sbMaybeDailyBackup(){
   if(!sbLoggedIn())return;
@@ -37,7 +37,7 @@ async function sbOpenRestore(){
     h+='<div class="actions"><button class="btn ghost" onclick="sbBackupNow()">גבה עכשיו</button><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
     box.innerHTML=h;
   }catch(e){
-    box.innerHTML='<h3>שחזור נתונים</h3><div class="hint">שגיאה: '+e.message+'</div><div class="actions"><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
+    box.innerHTML='<h3>שחזור נתונים</h3><div class="hint">שגיאה: '+sbFriendlyError(e)+'</div><div class="actions"><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
   }
 }
 async function sbDoRestore(id){
@@ -67,7 +67,7 @@ async function sbDoRestore(id){
     closeModal();applyBrand();refresh();
     await sbPushChanged(true);
     toast('הנתונים שוחזרו ✓');
-  }catch(e){toast('השחזור נכשל: '+e.message);}
+  }catch(e){toast('השחזור נכשל: '+sbFriendlyError(e));}
 }
 
 

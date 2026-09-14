@@ -378,9 +378,98 @@ td.bcell{white-space:nowrap}
   .tk-filterbar .tk-search{flex:1 1 100%}
 }
 
+/* עמודה ראשונה קבועה בגלילה אופקית — טבלת "מיקום במחסן" ארוכה מאוד (14+ עמודות) */
+#v-loc .tablewrap table th:first-child,
+#v-loc .tablewrap table td:first-child{position:sticky;right:0;z-index:3;background:var(--paper)}
+#v-loc .tablewrap table th:first-child{background:var(--navy);z-index:7}
+#v-loc .tablewrap table tbody tr:hover td:first-child{background:#FBF7F0}
+@media (prefers-color-scheme: dark){
+  #v-loc .tablewrap table tbody tr:hover td:first-child{background:#2a221c}
+}
+.loading-more{display:flex;align-items:center;gap:8px;justify-content:center;padding:10px;color:var(--muted);font-size:12.5px}
+.loading-more .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 1s ease-in-out infinite}
+.loading-more .dot:nth-child(2){animation-delay:.15s}.loading-more .dot:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* דף ליקוט — כרטיסים גדולים למגע במקום טבלה, כדי שאפשר לסמן פריט ביד אחת בזמן ליקוט בפועל */
+.pick-progress{height:8px;background:#EFE9DF;border-radius:5px;overflow:hidden;margin-top:8px}
+.pick-progress-bar{height:100%;background:var(--ok);transition:width .3s}
+.pick-list{display:flex;flex-direction:column;gap:6px;max-height:56vh;overflow:auto;padding-left:2px}
+.pick-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);cursor:pointer;transition:.12s;user-select:none}
+.pick-row:hover{border-color:var(--gold)}
+.pick-row.done{background:#f2faf3;border-color:var(--ok)}
+.pick-row.done .pick-name{text-decoration:line-through;color:var(--muted)}
+.pick-check{flex-shrink:0;width:30px;height:30px;border:2px solid var(--line);border-radius:8px;display:grid;place-items:center;font-weight:900;color:#fff;font-size:17px}
+.pick-row.done .pick-check{background:var(--ok);border-color:var(--ok)}
+.pick-body{flex:1;min-width:0}
+.pick-loc{font-size:11px;font-weight:800;color:var(--navy)}
+.pick-name{font-size:14px;font-weight:600;white-space:normal;word-break:break-word}
+.pick-clients{font-size:10.5px;color:var(--muted);margin-top:2px}
+.pick-qty{flex-shrink:0;font-size:20px;font-weight:800;color:var(--wine);min-width:34px;text-align:center}
+@media(max-width:760px){
+  .pick-row{padding:12px 10px;min-height:52px}
+  .pick-check{width:34px;height:34px;font-size:19px}
+  .pick-name{font-size:15px}
+  .pick-qty{font-size:22px}
+  .pick-list{max-height:62vh}
+}
+@media (prefers-color-scheme: dark){
+  .pick-row{background:var(--paper);border-color:var(--line)}
+  .pick-row.done{background:#1c2e20;border-color:var(--ok)}
+  .pick-progress{background:#241D19}
+}
+
 /* אזור הכניסה — ניתן לשיבוץ, מסומן בבירור */
 .cell.rowlabel.entrance-lbl{background:#8C8378;color:#fff;font-size:11px;font-weight:700}
 .slotwrap.entrancecell{background:linear-gradient(180deg,#E4DDD2,#EFEAE1);border-color:#C9C0B4}
 .slotwrap.entrancecell::before{content:'⇩ כניסה';position:absolute;top:2px;inset-inline-start:4px;
   font-size:8.5px;color:#8a8175;font-weight:700;pointer-events:none;z-index:1}
 .slotwrap.entrancecell{position:relative}
+
+/* ==========================================================
+   מצב כהה — לפי העדפת המערכת בלבד (אין מתג ידני באפליקציה).
+   מעדכן רק את הצבעים המשותפים (משתני root + רקעים/גבולות חוזרים) —
+   צבעי מפת המחסן/קטגוריות/קפסולות נשארים כמו שהם בכוונה, כי הם
+   קידוד משמעות (איזו קטגוריה/סטטוס) ולא רק עיצוב, וגם עיצוב ההדפסה
+   (מדבקות) לא משתנה — הדפסה תמיד יוצאת על רקע לבן בלי קשר למסך.
+   ========================================================== */
+@media (prefers-color-scheme: dark){
+  :root{
+    --cream:#1B1512; --paper:#241D19; --ink:#EFE6DD; --muted:#B0A499; --line:#3A2F29;
+  }
+  body{background:var(--cream)}
+  .panel,.kpi,.card,.lblcard,.modal .box,#modalbox{background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .card{background:linear-gradient(160deg,#241D19,#1F1A16)}
+  .card.gold{background:linear-gradient(160deg,#2E2717,#28210F);border-color:#4a3d1e}
+  .card.gold .v{color:#E0C46B}
+  .bar input[type=search],.bar select,.field input,.field select,.flt select,td input,td select{background:#241D19;color:var(--ink);border-color:var(--line)}
+  td input:focus,td select:focus{background:#2b231d}
+  td.in input{background:#332a17;border-color:#5c4a20}
+  .btn.ghost{background:#241D19}
+  tbody tr:hover{background:#2a221c}
+  .tablewrap,.filterbar,.mapscroll{background:var(--paper);border-color:var(--line)}
+  .filterbar{background:#221c18}
+  .warn-row{background:#3a2222!important}
+  tr.totrow td{background:#332a17}
+  .empty-chart{background:repeating-linear-gradient(45deg,#241D19,#241D19 10px,#2a221c 10px,#2a221c 20px);border-color:var(--line);color:var(--muted)}
+  .caltable td.catcell{background:#241D19;color:#E9D9B8}
+  .monthcal td{border-color:var(--line)}
+  .monthcal td:hover{background:#332a17}
+  .monthcal td.out{background:#1F1A16;color:#5a5048}
+  .monthcal td.hol{background:#2e2717}
+  .tk-day{background:linear-gradient(90deg,#241D19,#2a221c)}
+  .tk-day.today{background:linear-gradient(90deg,#332a17,#2a2418)}
+  .tk-day.late{background:linear-gradient(90deg,#3a2222,#2e1c1c)}
+  .tk-daybar,.tk-dayinfo{background:#241D19;border-color:var(--line)}
+  .tk-card .tk-zone{background:#3A2F29;color:#E9D9B8}
+  .btrack{background:#241D19}
+  .chip2{background:#241D19;border-color:var(--line);color:var(--ink)}
+  .bctag{background:#241D19;border-color:var(--line)}
+  .lvl.empty{background:#241D19;color:#7a6f65;border-color:var(--line)}
+  .slotwrap{background:var(--paper)}
+  .shelfwrap{background:linear-gradient(180deg,#2a2333,#232a2f);border-color:#3a3346}
+  .cell.empty{background:var(--paper);color:#5a5048;border-color:var(--line)}
+  .cell.aisle{background:#241D19;color:#5a5048}
+  .donut-h{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line)}
+  th.sortable.on{background:#0d1a30}
+}

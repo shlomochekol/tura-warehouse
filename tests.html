@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>בדיקות רגרסיה — יקב טורא</title>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  #testResults{max-width:900px;margin:20px auto;padding:0 12px}
+  .trow{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px}
+  .trow.pass{color:var(--ok)}.trow.fail{background:#FDF1F1;color:var(--warn);font-weight:700}
+  .trow .mark{width:18px;flex-shrink:0}
+  .trow .detail{color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  #testSummary{font-size:16px;font-weight:700;margin:14px 0}
+  #app-shell{display:none}
+</style>
+</head>
+<body>
+<div id="testResults"><h2>מריץ בדיקות…</h2></div>
+
+<!-- שלד מינימלי — חלק מהמודולים מצפים לאלמנטים האלה ב-DOM גם אם המסך לא מוצג -->
+<div id="app-shell">
+  <header><div class="brand"><h1 id="brandTitle"></h1><div class="sub" id="brandSub"></div></div></header>
+  <nav id="nav"></nav>
+  <main>
+    <section class="view" id="v-loc"></section>
+    <section class="view" id="v-inv"></section>
+    <section class="view" id="v-invlog"></section>
+    <section class="view" id="v-map"></section>
+    <section class="view" id="v-tasks"></section>
+    <section class="view" id="v-ship"></section>
+    <section class="view" id="v-dash"></section>
+    <section class="view" id="v-labels"></section>
+  </main>
+  <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="box" id="modalbox"></div></div>
+  <div class="toast" id="toast"></div>
+  <div id="loginov" class="loginov" style="display:none">
+    <div class="loginbox"><div id="lg_msg" class="lg-msg"></div></div>
+  </div>
+  <div id="planBanner" style="display:none"></div>
+</div>
+
+<script>
+/* בידוד מוחלט מה-localStorage האמיתי של הדפדפן — קובץ בדיקות אסור שייגע
+   אי פעם בנתונים אמיתיים, גם אם נפתח באותו דפדפן/פרופיל כמו האפליקציה עצמה. */
+(function () {
+  const mem = {};
+  const fakeLS = {
+    getItem: k => Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null,
+    setItem: (k, v) => { mem[k] = String(v); },
+    removeItem: k => { delete mem[k]; },
+    clear: () => { Object.keys(mem).forEach(k => delete mem[k]); },
+    key: i => Object.keys(mem)[i] || null,
+    get length() { return Object.keys(mem).length; }
+  };
+  try { Object.defineProperty(window, 'localStorage', { value: fakeLS, configurable: true }); }
+  catch (e) { window.localStorage = fakeLS; }
+})();
+</script>
+
+<script src="assets/lib/qrcode.js"></script>
+<script src="assets/data/seed.js"></script>
+<script src="assets/data/products.js"></script>
+<script src="assets/js/01-core.js"></script>
+<script src="assets/js/02-dashboard.js"></script>
+<script src="assets/js/03-map.js"></script>
+<script src="assets/js/04-location.js"></script>
+<script src="assets/js/05-inventory.js"></script>
+<script src="assets/js/06-settings.js"></script>
+<script src="assets/js/07-helpers.js"></script>
+<script src="assets/js/08-labels.js"></script>
+<script src="assets/js/09-help.js"></script>
+<script src="assets/js/10-csv.js"></script>
+<script src="assets/js/11-map-export.js"></script>
+<script src="assets/js/12-barcodes.js"></script>
+<script src="assets/js/13-backups-cloud.js"></script>
+<script src="assets/js/14-diagnostics.js"></script>
+<script src="assets/js/15-autosave.js"></script>
+<script src="assets/js/16-lionwheel.js"></script>
+<script src="assets/js/17-supabase.js"></script>
+<script src="assets/js/18-rowsync.js"></script>
+<script src="assets/js/19-board.js"></script>
+<script src="assets/js/20-tasks.js"></script>
+<script src="assets/js/21-picking.js"></script>
+<script src="assets/js/22-supply.js"></script>
+<script src="assets/js/23-deduct.js"></script>
+<script src="assets/js/24-invlog.js"></script>
+<script>
+/* 99-boot.js לא נטען בכוונה — הוא מפעיל את האפליקציה בפועל (רינדור מסכים,
+   קריאה ל-selfTest אוטומטית, הצגת מסך כניסה). כאן רק בונים state תקין
+   ידנית ומריצים את חבילת הבדיקות. */
+if (typeof sanitizeState === 'function') sanitizeState();
+if (typeof loadCustomCats === 'function') loadCustomCats();
+if (typeof seedCatDefaults === 'function') seedCatDefaults();
+if (typeof ensureAllCodes === 'function') ensureAllCodes();
+/* מפעילים ניווט + מסך ראשון כמו 99-boot.js — כדי ש-selfTest() יבדוק מצב
+   קרוב ככל האפשר לאפליקציה האמיתית (סרגל ניווט בנוי, מסך עם תוכן) */
+if (typeof buildNav === 'function') buildNav();
+if (typeof activate === 'function') activate(0);
+</script>
+<script>
+/* ============================================================
+   חבילת בדיקות רגרסיה — תופסת בדיוק את סוג הבאגים שכבר קרו בעבר:
+   שורות LionWheel עם "מבצע"/תבנית "X+Y" שנופלות בטעות, "דולצ'טו" עם
+   גרש לא סטנדרטי, טבלת inv_log חסרה שמפילה סנכרון, חישובי ארגזים/משטחים.
+   כל בדיקה עצמאית ולא נשענת על localStorage אמיתי (ראו הבידוד למעלה).
+   ============================================================ */
+(function () {
+  const T = [];
+  function ok(name, cond, detail) { T.push({ name, pass: !!cond, detail: detail || '' }); }
+  function eq(name, actual, expected) {
+    ok(name, JSON.stringify(actual) === JSON.stringify(expected),
+      'actual=' + JSON.stringify(actual) + ' expected=' + JSON.stringify(expected));
+  }
+
+  // ---- LionWheel: promo/bundle lines with a valid catalog barcode must be kept ----
+  try {
+    const cell = [
+      '20.0: קברנה ויסטה 2024 - 10 + 2 מבצע חג(7290019158639)',   // has מבצע word + valid barcode
+      '55.0: רוזה 2025 11+1(7290019158547)',                       // N+M pattern, NO מבצע word — the real bug found live
+      '5.0: רוזה 2025(7290019158547)',
+      "5.0: דולצ'טו 2022 (7290019158777)",                          // straight apostrophe
+      '5.0: דולצ׳טו 2023 (7290019158778)',                     // Hebrew geresh
+      '1.0: משלוח חינם',                                            // must stay excluded
+      '3.0: מבצע קיץ (0)',                                          // promo + invalid barcode -> excluded
+      '12.0: מארז מבצע 3 יינות (123)',                              // promo + short barcode -> excluded
+    ].join('\n');
+    const out = parseItemsCell(cell);
+    const names = out.map(o => o.name);
+    ok('LionWheel: "10+2 מבצע חג" עם ברקוד תקין נכלל', names.some(n => n.indexOf('קברנה ויסטה') >= 0), names.join(' | '));
+    ok('LionWheel: "רוזה 2025 11+1" בלי מילת מבצע אבל עם ברקוד תקין נכלל (הבאג האמיתי שנתפס)',
+      out.some(o => o.name.indexOf('11+1') >= 0 && o.qty === 55), JSON.stringify(out.filter(o => o.name.indexOf('רוזה') >= 0)));
+    const rozeTotal = out.filter(o => o.name.indexOf('רוזה') >= 0).reduce((t, o) => t + o.qty, 0);
+    eq('LionWheel: סך יחידות רוזה 2025 = 55+5', rozeTotal, 60);
+    ok('LionWheel: דולצ\'טו עם גרש ישר מקבל סיומת', out.some(o => /דולצ.*כולל מארז יחיד/.test(o.name)) , names.join(' | '));
+    ok('LionWheel: דולצ\'טו עם גרש עברי (׳) גם מקבל סיומת', names.filter(n => n.indexOf('כולל מארז יחיד') >= 0).length >= 2, names.join(' | '));
+    ok('LionWheel: "משלוח חינם" נשאר מסונן', !names.some(n => n.indexOf('משלוח') >= 0), names.join(' | '));
+    ok('LionWheel: "מבצע קיץ" עם ברקוד "0" (לא 13 ספרות) נשאר מסונן', !names.some(n => n.indexOf('מבצע קיץ') >= 0), names.join(' | '));
+    ok('LionWheel: "מארז מבצע" עם ברקוד קצר נשאר מסונן', !names.some(n => n.indexOf('מארז מבצע') >= 0), names.join(' | '));
+  } catch (e) { ok('LionWheel: פארסינג לא קרס', false, e.message); }
+
+  // ---- inv_log: logInv records correctly and doesn't crash on missing entry fields ----
+  try {
+    const bak = state.invLog; state.invLog = [];
+    const rec = logInv({ id: 't1', category: 'בדיקה', vintage: '', type: '', prow: 1, pcol: 1, plevel: 1 }, 10, 7, 'manual');
+    ok('inv_log: logInv רושם before/after/delta נכון', !!rec && rec.before === 10 && rec.after === 7 && rec.delta === -3, JSON.stringify(rec));
+    ok('inv_log: logInv לא רושם כשאין שינוי', logInv({ id: 't2', category: 'x' }, 5, 5, 'manual') === null, '');
+    state.invLog = bak;
+  } catch (e) { ok('inv_log: logInv לא קרס', false, e.message); }
+
+  // ---- Supabase error translation (the exact live incident: missing inv_log table blocked login) ----
+  try {
+    const raw = "(404) Could not find the table 'public.inv_log' in the schema cache";
+    ok('Supabase: מזהה טבלה חסרה כ-"missing table"', isMissingTableErr({ message: raw }), raw);
+    const friendly = sbFriendlyError({ message: raw });
+    ok('Supabase: שגיאת טבלה חסרה מתורגמת לעברית ברורה, לא נשארת גולמית',
+      friendly.indexOf('Could not find') === -1 && friendly.indexOf('טבלה חסרה') >= 0, friendly);
+    ok('Supabase: __RELOGIN__ מתורגם להודעה ברורה', sbFriendlyError({ message: '__RELOGIN__' }).indexOf('להתחבר מחדש') >= 0, '');
+  } catch (e) { ok('Supabase: שכבת תרגום שגיאות לא קרסה', false, e.message); }
+
+  // ---- deduct/return round trip ----
+  try {
+    const e0 = state.entries.find(x => (+x.units || 0) >= 10) || state.entries[0];
+    const before = +e0.units || 0;
+    _dedShip = { client: 'test', category: e0.category, vintage: e0.vintage, units: 3 };
+    _dedPick = {}; _dedPick[e0.id] = 3;
+    dedApply();
+    const afterDeduct = +state.entries.find(x => x.id === e0.id).units;
+    eq('deduct: ניכוי 3 יחידות', afterDeduct, before - 3);
+    const s = { deducted: 1, dedRec: [{ id: e0.id, take: 3 }], client: 'test' };
+    state.shipments.push(s);
+    const _origConfirm = window.confirm; window.confirm = () => true; // dedUndo מבקש אישור — עוקפים רק כאן
+    try { dedUndo(state.shipments.length - 1); } finally { window.confirm = _origConfirm; }
+    const afterUndo = +state.entries.find(x => x.id === e0.id).units;
+    eq('deduct: החזרה חוזרת לכמות המקורית', afterUndo, before);
+    state.shipments.pop();
+  } catch (e) { ok('deduct/return: לא קרס', false, e.message); }
+
+  // ---- box/pallet math sanity ----
+  try {
+    const d = derive({ category: 'הרטלנד', label: 'מתוות עברית', units: 1200 });
+    eq('חישוב: 1200 יח\' ÷ 12 = 100 ארגזים', Math.round(d.boxes), 100);
+    eq('חישוב: MP לא מתוות = 12 ליחידה', bpb('MP', 'לא מתוות'), 12);
+    eq('חישוב: MP מתוות = 6 ליחידה', bpb('MP', 'מתוות עברית'), 6);
+  } catch (e) { ok('חישובי ארגזים/משטחים לא קרסו', false, e.message); }
+
+  // ---- selfTest() / dataAudit() must not throw and selfTest must be fully green ----
+  try {
+    const st = selfTest();
+    const failed = st.filter(x => x.pass === false);
+    ok('selfTest(): כל הבדיקות הפנימיות ירוקות', failed.length === 0, failed.map(x => x.n).join(', '));
+  } catch (e) { ok('selfTest(): לא קרס', false, e.message); }
+  try { dataAudit(); ok('dataAudit(): לא קרס', true); } catch (e) { ok('dataAudit(): לא קרס', false, e.message); }
+
+  // ---- sw.js cache-version sanity (best effort — needs http(s), skipped silently under file://) ----
+  function renderResults() {
+    const passCount = T.filter(x => x.pass).length;
+    const failCount = T.length - passCount;
+    let h = '<h1>בדיקות רגרסיה — יקב טורא</h1>';
+    h += '<div id="testSummary" style="color:' + (failCount ? 'var(--warn)' : 'var(--ok)') + '">' +
+      (failCount ? ('⚠ ' + failCount + ' בדיקות נכשלו מתוך ' + T.length) : ('✓ כל ' + T.length + ' הבדיקות עברו')) + '</div>';
+    T.forEach(t => {
+      h += '<div class="trow ' + (t.pass ? 'pass' : 'fail') + '"><span class="mark">' + (t.pass ? '✓' : '✗') + '</span>' +
+        '<div><div>' + t.name + '</div>' + (t.detail ? '<div class="detail">' + t.detail.replace(/</g, '&lt;') + '</div>' : '') + '</div></div>';
+    });
+    document.getElementById('testResults').innerHTML = h;
+    document.title = (failCount ? '(' + failCount + ' נכשלו) ' : '✓ ') + 'בדיקות רגרסיה';
+  }
+
+  try {
+    fetch('sw.js').then(r => r.text()).then(t => {
+      const m = t.match(/CACHE\s*=\s*'([^']+)'/);
+      ok('sw.js: קיים משתנה CACHE (גרסת מטמון)', !!m, m ? m[1] : 'לא נמצא');
+      renderResults();
+    }).catch(() => renderResults());
+  } catch (e) { renderResults(); }
+})();
+</script>
+</body>
+</html>

@@ -97,7 +97,7 @@ function renderLabels(){
         <span class="lc-tot">${tot} ארגזים · נסרקו ${done}/${tot}${ok?' ✓':''}${b.lwPkg&&b.lwPkg!==tot?` <span class="mism" title="ב-LionWheel רשום ${b.lwPkg}">≠${b.lwPkg}</span>`:''}</span>
         <button class="btn ghost sm" onclick="openLabelEditor(${b.id})" title="עיצוב מדבקה ללקוח זה">🎨${b.tpl?' ✓':''}</button>
         <button class="btn sm" onclick="printLabels(${b.id})">🖨️ הדפס</button>
-        <button class="del" onclick="delBatch(${b.id})">✕</button>
+        <button class="del" aria-label="מחיקה" onclick="delBatch(${b.id})">✕</button>
       </div>
       ${(b.city||b.address||b.phone||b.stop)?`<div class="lc-meta">${b.stop?'עצירה '+esc(b.stop)+' · ':''}${esc([b.address,b.city].filter(Boolean).join(', '))}${b.phone?' · '+esc(b.phone):''}${b.time?' · '+esc(b.time):''}</div>`:''}
       ${prodListHTML(b)}
@@ -107,7 +107,7 @@ function renderLabels(){
         <div class="prods">${(it.contents||[]).map((p,pi)=>`<span class="prodchip">${esc(p||'—')}<button onclick="delProd(${b.id},${k},${pi})">✕</button></span>`).join('')}
         <input list="prodlist" class="prodadd" placeholder="+ הוסף מוצר…" onchange="addProd(${b.id},${k},this.value);this.value=''"></div></td>
         <td><input type="number" min="1" style="width:80px" value="${it.count||1}" onchange="setItem(${b.id},${k},'count',this.value)"></td>
-        <td><button class="del" onclick="delItem(${b.id},${k})">✕</button></td></tr>`;});
+        <td><button class="del" aria-label="מחיקה" onclick="delItem(${b.id},${k})">✕</button></td></tr>`;});
     h+=`</tbody></table><button class="btn ghost sm" onclick="addItem(${b.id})">+ הוסף שורת ארגזים</button>`;
     const ps=productStats(b);
     if(ps.length)h+=`<div class="pstat">${ps.map(x=>`<span class="${x.got>=x.exp?'okp':''}">${esc(x.p)}: ${x.got}/${x.exp}${x.got>=x.exp?' ✓':''}</span>`).join('')}</div>`;

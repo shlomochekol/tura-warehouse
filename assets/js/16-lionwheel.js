@@ -163,7 +163,7 @@ function openBoxRules(){
   (br.rules||[]).forEach((r,i)=>{h+=`<tr>
     <td><input value="${esc(r.match||'')}" onchange="boxRules().rules[${i}].match=this.value;save()"></td>
     <td><input type="number" style="width:70px" value="${esc(r.units)}" onchange="boxRules().rules[${i}].units=+this.value||12;save()"></td>
-    <td><button class="del" onclick="boxRules().rules.splice(${i},1);save();openBoxRules()">✕</button></td></tr>`;});
+    <td><button class="del" aria-label="מחיקה" onclick="boxRules().rules.splice(${i},1);save();openBoxRules()">✕</button></td></tr>`;});
   h+=`</tbody></table><button class="btn ghost sm" onclick="boxRules().rules.push({match:'',units:12});save();openBoxRules()">+ הוסף כלל</button>
    <div class="actions"><button class="btn" onclick="closeModal()">סגור</button></div>`;
   box.innerHTML=h;
