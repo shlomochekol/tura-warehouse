@@ -4930,9 +4930,15 @@ async function sbOpenRestore(){
     const rows=await sbRest('GET','backups?select=id,created_at&business_id=eq.'+SB.biz+'&order=id.desc&limit='+SB_MAX_BACKUPS);
     let h='<h3>שחזור נתונים</h3><div class="hint">'+SB_MAX_BACKUPS+' הגרסאות האחרונות שנשמרו בענן. שחזור יחליף את הנתונים הנוכחיים בכל המכשירים.</div>';
     if(!rows||!rows.length)h+='<div class="hint" style="margin-top:8px">אין עדיין גיבויים. לחץ "גבה עכשיו".</div>';
-    else h+='<div class="bklist">'+rows.map(r=>`<div class="bkrow"><span>${new Date(r.created_at).toLocaleString('he-IL')}</span>
-      <span><button class="btn sm ghost" onclick="sbCompareBackup(${r.id})">השווה למצב הנוכחי</button>
-      <button class="btn sm" onclick="sbDoRestore(${r.id})">שחזר</button></span></div>`).join('')+'</div>';
+    else h+='<div class="bklist">'+rows.map(r=>{
+      const others=rows.filter(x=>x.id!==r.id);
+      const opts='<option value="current">המצב הנוכחי</option>'+
+        others.map(o=>`<option value="${o.id}">גיבוי ${esc(new Date(o.created_at).toLocaleString('he-IL'))}</option>`).join('');
+      return `<div class="bkrow"><span>${new Date(r.created_at).toLocaleString('he-IL')}</span>
+      <span>השווה מול <select id="cmpto_${r.id}" class="mini">${opts}</select>
+      <button class="btn sm ghost" onclick="sbCompareBackup(${r.id},document.getElementById('cmpto_${r.id}').value)">השווה</button>
+      <button class="btn sm" onclick="sbDoRestore(${r.id})">שחזר</button></span></div>`;
+    }).join('')+'</div>';
     h+='<div class="actions"><button class="btn ghost" onclick="sbBackupNow()">גבה עכשיו</button><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
     box.innerHTML=h;
   }catch(e){
@@ -4940,32 +4946,46 @@ async function sbOpenRestore(){
   }
 }
 /* השוואה בלבד — לא משנה כלום. עוזר לאתר בדיוק אילו פריטים איבדו מיקום/כמות
-   נכונים בלי לנחש ובלי לסכן שחזור מיותר (למשל אחרי אירוע סנכרון בעייתי). */
-async function sbCompareBackup(id){
+   נכונים בלי לנחש ובלי לסכן שחזור מיותר (למשל אחרי אירוע סנכרון בעייתי).
+   toId: 'current' (ברירת מחדל) להשוואה מול המצב החי, או מזהה גיבוי אחר —
+   שימושי כשאין גיבוי "נקי" מיד לפני התקרית ורוצים להשוות שני גיבויים
+   רצופים ולמצוא פריט ש"קפץ וחזר" (חתימת הבאג, בניגוד לשיבוץ ידני רגיל). */
+async function sbCompareBackup(id,toId){
+  toId=(toId===undefined||toId===null||toId==='')?'current':toId;
   const box=document.getElementById('modalbox');box.className='box';
-  box.innerHTML='<h3>השוואה לגיבוי</h3><div class="hint">טוען…</div>';
+  box.innerHTML='<h3>השוואה</h3><div class="hint">טוען…</div>';
   document.getElementById('modal').classList.add('open');
   try{
-    const rows=await sbRest('GET','backups?select=snapshot,created_at&id=eq.'+id);
-    const row=rows&&rows[0];
-    if(!row)throw new Error('הגיבוי לא נמצא');
-    const sn=row.snapshot||{};
-    const oldByid={};(sn.entries||[]).forEach(e=>{if(e&&e.id!=null)oldByid[e.id]=e;});
+    const ids=(toId==='current')?[id]:[id,+toId];
+    const rows=await sbRest('GET','backups?select=id,snapshot,created_at&id=in.('+ids.join(',')+')');
+    const byId={};(rows||[]).forEach(r=>byId[r.id]=r);
+    const fromRow=byId[id];
+    if(!fromRow)throw new Error('הגיבוי לא נמצא');
+    const fromByid={};((fromRow.snapshot||{}).entries||[]).forEach(e=>{if(e&&e.id!=null)fromByid[e.id]=e;});
+    let toEntries,toLabel;
+    if(toId==='current'){toEntries=state.entries||[];toLabel='המצב הנוכחי';}
+    else{
+      const toRow=byId[+toId];
+      if(!toRow)throw new Error('הגיבוי השני לא נמצא');
+      toEntries=(toRow.snapshot||{}).entries||[];
+      toLabel='גיבוי מ-'+new Date(toRow.created_at).toLocaleString('he-IL');
+    }
     const label=e=>[e.category,e.vintage,e.type].filter(Boolean).join(' ');
     const locStr=x=>(+x.prow>0)?(x.prow+'-'+x.pcol+(x.plevel?(' · רמה '+x.plevel):'')):'—';
     const diffs=[];
-    (state.entries||[]).forEach(e=>{
-      const o=oldByid[e.id];
-      if(!o)return;                     // פריט חדש מאז הגיבוי — לא רלוונטי להשוואה
+    (toEntries||[]).forEach(e=>{
+      const o=fromByid[e.id];
+      if(!o)return;                     // פריט חדש מאז ה"מ" — לא רלוונטי להשוואה
       const locChanged=(+o.prow||0)!==(+e.prow||0)||(+o.pcol||0)!==(+e.pcol||0)||(+o.plevel||0)!==(+e.plevel||0);
       const unitsChanged=(+o.units||0)!==(+e.units||0);
       if(locChanged||unitsChanged)diffs.push({e,o,locChanged,unitsChanged});
     });
-    let h='<h3>השוואה לגיבוי מ-'+esc(new Date(row.created_at).toLocaleString('he-IL'))+'</h3>';
-    h+='<div class="hint" style="margin:0 0 8px">משווה מיקום ויחידות מול המצב הנוכחי. לא משנה כלום.</div>';
-    if(!diffs.length)h+='<div class="hint" style="padding:14px;text-align:center">אין הבדלים במיקום או ביחידות מאז הגיבוי הזה.</div>';
+    let h='<h3>השוואה</h3><div class="hint" style="margin:0 0 8px">'+
+      esc('גיבוי '+new Date(fromRow.created_at).toLocaleString('he-IL'))+' ⟵⟶ '+esc(toLabel)+'</div>';
+    h+='<div class="hint" style="margin:0 0 8px">משווה מיקום ויחידות. לא משנה כלום.</div>';
+    if(!diffs.length)h+='<div class="hint" style="padding:14px;text-align:center">אין הבדלים במיקום או ביחידות בין השתיים.</div>';
     else{
-      h+='<div class="tablewrap" style="max-height:340px"><table><thead><tr><th>פריט</th><th>בגיבוי</th><th>עכשיו</th></tr></thead><tbody>'+
+      h+='<div class="tablewrap" style="max-height:340px"><table><thead><tr><th>פריט</th><th>ב-'+esc(new Date(fromRow.created_at).toLocaleTimeString('he-IL'))+'</th><th>ב-'+esc(toLabel)+'</th></tr></thead><tbody>'+
         diffs.map(d=>'<tr><td>'+esc(label(d.e))+'</td><td>'+
           (d.locChanged?('מיקום '+esc(locStr(d.o))+'<br>'):'')+
           (d.unitsChanged?(Math.round(+d.o.units||0)+' יח׳'):'')+'</td><td>'+
