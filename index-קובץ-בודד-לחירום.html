@@ -5305,6 +5305,10 @@ function openBoxRules(){
 const SB_DEFAULT_URL='https://ncgehwgatdafxaydmhjc.supabase.co';
 const SB_DEFAULT_KEY='sb_publishable_nmnrigdtL-QTwzl3ozsyWw_LlTVtUn-';
 const SB={url:SB_DEFAULT_URL,key:SB_DEFAULT_KEY,token:'',refresh:'',uid:'',biz:'',email:''};
+/* true רק אחרי ש-sbPull() הצליח פעם אחת בטעינה הנוכחית — עד אז _sbRowSnap ריק,
+   ודחיפה לענן (sbPushChanged) הייתה מתייחסת לכל שורה מקומית כ"השתנתה" ודורסת את הענן
+   (למשל מכשיר שנפתח עם עותק מקומי ישן, וניגע בו לפני שהמשיכה מהענן הספיקה לרוץ). */
+let _sbPulledOnce=false;
 function sbLoad(){const c=JSON.parse(localStorage.getItem('sb_sess')||'{}');Object.assign(SB,c);if(!SB.url)SB.url=SB_DEFAULT_URL;if(!SB.key)SB.key=SB_DEFAULT_KEY;return SB;}
 function sbStore(){localStorage.setItem('sb_sess',JSON.stringify({url:SB.url,key:SB.key,token:SB.token,refresh:SB.refresh,uid:SB.uid,biz:SB.biz,email:SB.email}));}
 function sbLoggedIn(){sbLoad();return !!(SB.token&&SB.biz);}
@@ -5404,6 +5408,7 @@ async function sbPull(){
   if(typeof sanitizeState==='function')sanitizeState();
   ensureRowIds();
   SB_TABLES.forEach(([t])=>sbCaptureRows(t));
+  _sbPulledOnce=true;
   /* תמונת המצב נלקחת רק ממה שבאמת הגיע מהענן.
      מפתח שחסר בענן (למשל משימות בהתחברות ראשונה) חייב להישלח אליו. */
   try{
@@ -5747,9 +5752,16 @@ async function sbPushState(){
   sbStateKV().forEach(([k,v])=>{_sbStateSnap[k]=JSON.stringify(v);});
 }
 function sbSnapshot(){return{inv:JSON.stringify(state.entries),ship:JSON.stringify(state.shipments),lbl:JSON.stringify(state.labels),log:JSON.stringify(state.invLog||[]),st:JSON.stringify(sbStateKV())};}
-let _sbSnap=null,_sbTimer=null,_sbBusy=false,_sbQueued=false;
+let _sbSnap=null,_sbTimer=null,_sbBusy=false,_sbQueued=false,_sbPullWait=false;
 async function sbPushChanged(silent){
   if(!sbLoggedIn())return;
+  /* עדיין לא הצלחנו למשוך מהענן בטעינה הזו — אין נקודת ייחוס אמינה לדעת מה השתנה
+     באמת. דחיפה עכשיו הייתה עלולה לדרוס שינויים ממכשיר אחר בכל שורה שלא נגענו בה
+     (זה בדיוק מה שקרה למיקום שרדונה 2024 — ראה הערה ב-17-supabase.js). מחכים ומנסים שוב. */
+  if(!_sbPulledOnce){
+    if(!_sbPullWait){_sbPullWait=true;setTimeout(()=>{_sbPullWait=false;sbPushChanged(silent);},800);}
+    return;
+  }
   if(_sbBusy){_sbQueued=true;return;}
   _sbBusy=true;sbSyncMsg('מסנכרן…');
   try{

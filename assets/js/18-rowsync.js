@@ -249,9 +249,16 @@ async function sbPushState(){
   sbStateKV().forEach(([k,v])=>{_sbStateSnap[k]=JSON.stringify(v);});
 }
 function sbSnapshot(){return{inv:JSON.stringify(state.entries),ship:JSON.stringify(state.shipments),lbl:JSON.stringify(state.labels),log:JSON.stringify(state.invLog||[]),st:JSON.stringify(sbStateKV())};}
-let _sbSnap=null,_sbTimer=null,_sbBusy=false,_sbQueued=false;
+let _sbSnap=null,_sbTimer=null,_sbBusy=false,_sbQueued=false,_sbPullWait=false;
 async function sbPushChanged(silent){
   if(!sbLoggedIn())return;
+  /* עדיין לא הצלחנו למשוך מהענן בטעינה הזו — אין נקודת ייחוס אמינה לדעת מה השתנה
+     באמת. דחיפה עכשיו הייתה עלולה לדרוס שינויים ממכשיר אחר בכל שורה שלא נגענו בה
+     (זה בדיוק מה שקרה למיקום שרדונה 2024 — ראה הערה ב-17-supabase.js). מחכים ומנסים שוב. */
+  if(!_sbPulledOnce){
+    if(!_sbPullWait){_sbPullWait=true;setTimeout(()=>{_sbPullWait=false;sbPushChanged(silent);},800);}
+    return;
+  }
   if(_sbBusy){_sbQueued=true;return;}
   _sbBusy=true;sbSyncMsg('מסנכרן…');
   try{

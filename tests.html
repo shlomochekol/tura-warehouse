@@ -105,7 +105,7 @@ if (typeof activate === 'function') activate(0);
    גרש לא סטנדרטי, טבלת inv_log חסרה שמפילה סנכרון, חישובי ארגזים/משטחים.
    כל בדיקה עצמאית ולא נשענת על localStorage אמיתי (ראו הבידוד למעלה).
    ============================================================ */
-(function () {
+(async function () {
   const T = [];
   function ok(name, cond, detail) { T.push({ name, pass: !!cond, detail: detail || '' }); }
   function eq(name, actual, expected) {
@@ -157,6 +157,32 @@ if (typeof activate === 'function') activate(0);
       friendly.indexOf('Could not find') === -1 && friendly.indexOf('טבלה חסרה') >= 0, friendly);
     ok('Supabase: __RELOGIN__ מתורגם להודעה ברורה', sbFriendlyError({ message: '__RELOGIN__' }).indexOf('להתחבר מחדש') >= 0, '');
   } catch (e) { ok('Supabase: שכבת תרגום שגיאות לא קרסה', false, e.message); }
+
+  // ---- sync race guard: sbPushChanged must never touch the cloud before the first
+  // sbPull() has succeeded in this page load — otherwise _sbRowSnap is still empty and
+  // every local row looks "changed", so a stale device overwrites a fresher cloud row.
+  // This is the exact live incident: שרדונה 2024's location (1-3 / column 7, set on
+  // another device) reverted to a stale local copy (column 4) after a reload. ----
+  try {
+    const bakPulled = _sbPulledOnce, bakToken = SB.token, bakBiz = SB.biz, bakWait = _sbPullWait, bakSnap = _sbSnap;
+    const bakSyncTable = window.sbSyncTable, bakPushState = window.sbPushState, bakBumpVer = window.sbBumpVer;
+    let calledSync = false;
+    window.sbSyncTable = function () { calledSync = true; return Promise.resolve({ merged: false, add: 0, upd: 0, del: 0 }); };
+    window.sbPushState = function () { return Promise.resolve(); };
+    window.sbBumpVer = function () { return Promise.resolve(); };
+    try {
+      SB.token = 'test-token'; SB.biz = 'test-biz'; _sbPullWait = false; _sbSnap = null;
+      _sbPulledOnce = false;
+      await sbPushChanged(true);
+      ok('סנכרון: sbPushChanged לא דוחף לענן לפני משיכה ראשונה מוצלחת (הבאג האמיתי: מיקום שרדונה 2024 שנדרס)', !calledSync, '');
+      _sbPulledOnce = true;
+      await sbPushChanged(true);
+      ok('סנכרון: sbPushChanged פועל כרגיל אחרי שהמשיכה הראשונה הצליחה', calledSync, '');
+    } finally {
+      _sbPulledOnce = bakPulled; SB.token = bakToken; SB.biz = bakBiz; _sbPullWait = bakWait; _sbSnap = bakSnap;
+      window.sbSyncTable = bakSyncTable; window.sbPushState = bakPushState; window.sbBumpVer = bakBumpVer;
+    }
+  } catch (e) { ok('סנכרון: מנגנון מניעת הדריסה לא קרס', false, e.message); }
 
   // ---- deduct/return round trip ----
   try {

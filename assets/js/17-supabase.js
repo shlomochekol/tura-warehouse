@@ -5,6 +5,10 @@
 const SB_DEFAULT_URL='https://ncgehwgatdafxaydmhjc.supabase.co';
 const SB_DEFAULT_KEY='sb_publishable_nmnrigdtL-QTwzl3ozsyWw_LlTVtUn-';
 const SB={url:SB_DEFAULT_URL,key:SB_DEFAULT_KEY,token:'',refresh:'',uid:'',biz:'',email:''};
+/* true רק אחרי ש-sbPull() הצליח פעם אחת בטעינה הנוכחית — עד אז _sbRowSnap ריק,
+   ודחיפה לענן (sbPushChanged) הייתה מתייחסת לכל שורה מקומית כ"השתנתה" ודורסת את הענן
+   (למשל מכשיר שנפתח עם עותק מקומי ישן, וניגע בו לפני שהמשיכה מהענן הספיקה לרוץ). */
+let _sbPulledOnce=false;
 function sbLoad(){const c=JSON.parse(localStorage.getItem('sb_sess')||'{}');Object.assign(SB,c);if(!SB.url)SB.url=SB_DEFAULT_URL;if(!SB.key)SB.key=SB_DEFAULT_KEY;return SB;}
 function sbStore(){localStorage.setItem('sb_sess',JSON.stringify({url:SB.url,key:SB.key,token:SB.token,refresh:SB.refresh,uid:SB.uid,biz:SB.biz,email:SB.email}));}
 function sbLoggedIn(){sbLoad();return !!(SB.token&&SB.biz);}
@@ -104,6 +108,7 @@ async function sbPull(){
   if(typeof sanitizeState==='function')sanitizeState();
   ensureRowIds();
   SB_TABLES.forEach(([t])=>sbCaptureRows(t));
+  _sbPulledOnce=true;
   /* תמונת המצב נלקחת רק ממה שבאמת הגיע מהענן.
      מפתח שחסר בענן (למשל משימות בהתחברות ראשונה) חייב להישלח אליו. */
   try{
