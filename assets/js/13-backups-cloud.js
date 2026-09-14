@@ -33,11 +33,52 @@ async function sbOpenRestore(){
     let h='<h3>שחזור נתונים</h3><div class="hint">'+SB_MAX_BACKUPS+' הגרסאות האחרונות שנשמרו בענן. שחזור יחליף את הנתונים הנוכחיים בכל המכשירים.</div>';
     if(!rows||!rows.length)h+='<div class="hint" style="margin-top:8px">אין עדיין גיבויים. לחץ "גבה עכשיו".</div>';
     else h+='<div class="bklist">'+rows.map(r=>`<div class="bkrow"><span>${new Date(r.created_at).toLocaleString('he-IL')}</span>
-      <button class="btn sm" onclick="sbDoRestore(${r.id})">שחזר</button></div>`).join('')+'</div>';
+      <span><button class="btn sm ghost" onclick="sbCompareBackup(${r.id})">השווה למצב הנוכחי</button>
+      <button class="btn sm" onclick="sbDoRestore(${r.id})">שחזר</button></span></div>`).join('')+'</div>';
     h+='<div class="actions"><button class="btn ghost" onclick="sbBackupNow()">גבה עכשיו</button><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
     box.innerHTML=h;
   }catch(e){
     box.innerHTML='<h3>שחזור נתונים</h3><div class="hint">שגיאה: '+sbFriendlyError(e)+'</div><div class="actions"><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
+  }
+}
+/* השוואה בלבד — לא משנה כלום. עוזר לאתר בדיוק אילו פריטים איבדו מיקום/כמות
+   נכונים בלי לנחש ובלי לסכן שחזור מיותר (למשל אחרי אירוע סנכרון בעייתי). */
+async function sbCompareBackup(id){
+  const box=document.getElementById('modalbox');box.className='box';
+  box.innerHTML='<h3>השוואה לגיבוי</h3><div class="hint">טוען…</div>';
+  document.getElementById('modal').classList.add('open');
+  try{
+    const rows=await sbRest('GET','backups?select=snapshot,created_at&id=eq.'+id);
+    const row=rows&&rows[0];
+    if(!row)throw new Error('הגיבוי לא נמצא');
+    const sn=row.snapshot||{};
+    const oldByid={};(sn.entries||[]).forEach(e=>{if(e&&e.id!=null)oldByid[e.id]=e;});
+    const label=e=>[e.category,e.vintage,e.type].filter(Boolean).join(' ');
+    const locStr=x=>(+x.prow>0)?(x.prow+'-'+x.pcol+(x.plevel?(' · רמה '+x.plevel):'')):'—';
+    const diffs=[];
+    (state.entries||[]).forEach(e=>{
+      const o=oldByid[e.id];
+      if(!o)return;                     // פריט חדש מאז הגיבוי — לא רלוונטי להשוואה
+      const locChanged=(+o.prow||0)!==(+e.prow||0)||(+o.pcol||0)!==(+e.pcol||0)||(+o.plevel||0)!==(+e.plevel||0);
+      const unitsChanged=(+o.units||0)!==(+e.units||0);
+      if(locChanged||unitsChanged)diffs.push({e,o,locChanged,unitsChanged});
+    });
+    let h='<h3>השוואה לגיבוי מ-'+esc(new Date(row.created_at).toLocaleString('he-IL'))+'</h3>';
+    h+='<div class="hint" style="margin:0 0 8px">משווה מיקום ויחידות מול המצב הנוכחי. לא משנה כלום.</div>';
+    if(!diffs.length)h+='<div class="hint" style="padding:14px;text-align:center">אין הבדלים במיקום או ביחידות מאז הגיבוי הזה.</div>';
+    else{
+      h+='<div class="tablewrap" style="max-height:340px"><table><thead><tr><th>פריט</th><th>בגיבוי</th><th>עכשיו</th></tr></thead><tbody>'+
+        diffs.map(d=>'<tr><td>'+esc(label(d.e))+'</td><td>'+
+          (d.locChanged?('מיקום '+esc(locStr(d.o))+'<br>'):'')+
+          (d.unitsChanged?(Math.round(+d.o.units||0)+' יח׳'):'')+'</td><td>'+
+          (d.locChanged?('מיקום '+esc(locStr(d.e))+'<br>'):'')+
+          (d.unitsChanged?(Math.round(+d.e.units||0)+' יח׳'):'')+'</td></tr>').join('')+
+        '</tbody></table></div><div class="hint" style="margin-top:6px">'+diffs.length+' פריטים שונים.</div>';
+    }
+    h+='<div class="actions"><button class="btn ghost" onclick="sbOpenRestore()">⬅ חזרה לרשימה</button><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
+    box.innerHTML=h;
+  }catch(e){
+    box.innerHTML='<h3>השוואה לגיבוי</h3><div class="hint">שגיאה: '+sbFriendlyError(e)+'</div><div class="actions"><button class="btn ghost" onclick="closeModal()">סגור</button></div>';
   }
 }
 async function sbDoRestore(id){
