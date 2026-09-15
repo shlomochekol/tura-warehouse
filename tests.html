@@ -85,6 +85,7 @@
 <script src="assets/js/22-supply.js"></script>
 <script src="assets/js/23-deduct.js"></script>
 <script src="assets/js/24-invlog.js"></script>
+<script src="assets/js/25-gcal.js"></script>
 <script>
 /* 99-boot.js לא נטען בכוונה — הוא מפעיל את האפליקציה בפועל (רינדור מסכים,
    קריאה ל-selfTest אוטומטית, הצגת מסך כניסה). כאן רק בונים state תקין
@@ -183,6 +184,35 @@ if (typeof activate === 'function') activate(0);
       window.sbSyncTable = bakSyncTable; window.sbPushState = bakPushState; window.sbBumpVer = bakBumpVer;
     }
   } catch (e) { ok('סנכרון: מנגנון מניעת הדריסה לא קרס', false, e.message); }
+
+  // ---- Google Calendar: event body construction (pure, no network) ----
+  try {
+    const bakMins = state.settings.gcalReminderMins;
+    state.settings.gcalReminderMins = 45;
+    const dayTask = { title: 'ספירת מלאי', notes: '', zone: 'ספירת מלאי', due: '2026-09-20', time: '' };
+    const dayEv = gcalEventBody(dayTask);
+    ok('gcal: משימה בלי שעה -> אירוע "יום שלם" (date, לא dateTime)', !!(dayEv.start && dayEv.start.date === '2026-09-20' && !dayEv.start.dateTime), JSON.stringify(dayEv.start));
+    eq('gcal: אירוע יום שלם מסתיים למחרת', dayEv.end.date, '2026-09-21');
+    const timedTask = { title: 'פגישה עם ספק', notes: 'לתאם משלוח', zone: 'קבלה', due: '2026-09-20', time: '23:50' };
+    const timedEv = gcalEventBody(timedTask);
+    ok('gcal: משימה עם שעה -> dateTime עם timeZone', !!(timedEv.start && timedEv.start.dateTime && timedEv.start.timeZone), JSON.stringify(timedEv.start));
+    ok('gcal: אירוע עם שעה חוצה חצות נכון (23:50 + 30 דק\' -> 20.9 ל-21.9)',
+      timedEv.start.dateTime.indexOf('2026-09-20T23:50') === 0 && timedEv.end.dateTime.indexOf('2026-09-21T00:20') === 0,
+      JSON.stringify({ start: timedEv.start.dateTime, end: timedEv.end.dateTime }));
+    eq('gcal: התזכורת נלקחת מהגדרות (לא ברירת מחדל של Google)', timedEv.reminders, { useDefault: false, overrides: [{ method: 'popup', minutes: 45 }] });
+    state.settings.gcalReminderMins = bakMins;
+  } catch (e) { ok('gcal: בניית גוף האירוע לא קרסה', false, e.message); }
+
+  // ---- Google Calendar: not-connected guard + friendly errors ----
+  try {
+    const bakToken = _gcalToken, bakExp = _gcalTokenExp;
+    _gcalToken = ''; _gcalTokenExp = 0;
+    let threw = null;
+    try { await gcalApi('POST', '', {}); } catch (e) { threw = e; }
+    ok('gcal: קריאת API בלי חיבור נכשלת מיד עם שגיאה מזוהה (לא שולחת בקשת רשת)', threw && threw.message === '__GCAL_NOT_CONNECTED__', threw && threw.message);
+    ok('gcal: השגיאה מתורגמת לעברית ברורה', gcalFriendlyError(threw).indexOf('להתחבר קודם') >= 0, gcalFriendlyError(threw));
+    _gcalToken = bakToken; _gcalTokenExp = bakExp;
+  } catch (e) { ok('gcal: הגנת "לא מחובר" לא קרסה', false, e.message); }
 
   // ---- deduct/return round trip ----
   try {

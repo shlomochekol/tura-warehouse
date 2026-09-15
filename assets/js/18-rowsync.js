@@ -157,7 +157,8 @@ async function sbReplace(table,arr){
   }
 }
 function sbStateKV(){return[
-  ['settings',{title:state.settings.title,sub:state.settings.sub,labelTpl:state.settings.labelTpl,boxRules:state.settings.boxRules,catUnits:state.settings.catUnits,catPal:state.settings.catPal,capNums:state.settings.capNums,capColorMap:state.settings.capColorMap,capCatMap:state.settings.capCatMap,capColors:state.settings.capColors,catPalette:state.settings.catPalette,catColorMap:state.settings.catColorMap,barcodes:state.settings.barcodes}],
+  ['settings',{title:state.settings.title,sub:state.settings.sub,labelTpl:state.settings.labelTpl,boxRules:state.settings.boxRules,catUnits:state.settings.catUnits,catPal:state.settings.catPal,capNums:state.settings.capNums,capColorMap:state.settings.capColorMap,capCatMap:state.settings.capCatMap,capColors:state.settings.capColors,catPalette:state.settings.catPalette,catColorMap:state.settings.catColorMap,barcodes:state.settings.barcodes,
+    gcalClientId:state.settings.gcalClientId,gcalReminderMins:state.settings.gcalReminderMins}],
   ['tasks',state.tasks],['tasks2',state.tasks2||[]],['board',state.board||{}],['boardCats',state.boardCats||[]],['grid',state.grid],['taskCats',state.taskCats],
   ['weekLabels',state.weekLabels],['dayCats',state.dayCats||{}],['customCats',state.customCats||[]],['routes',state.routes||[]],['supply',state.supply||[]],['supplyItems',state.supplyItems||[]],
   ['pickingProgress',state.pickingProgress||{}]];}

@@ -40,6 +40,7 @@ const MODULES = [
   'assets/js/22-supply.js',
   'assets/js/23-deduct.js',
   'assets/js/24-invlog.js',
+  'assets/js/25-gcal.js',
   'assets/js/99-boot.js',
 ];
 

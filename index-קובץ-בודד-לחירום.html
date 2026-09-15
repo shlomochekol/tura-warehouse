@@ -2864,7 +2864,8 @@ const PRODUCTS=[{"n":"פורטורא 2005","b":"7290012751035","c":"פורטור
 const _libs={};
 function needLib(name){
   if(_libs[name])return _libs[name];
-  const src={xlsx:'assets/lib/xlsx.js',jsqr:'assets/lib/jsqr.js',html2canvas:'assets/lib/html2canvas.js',zxing:'assets/lib/zxing.js'}[name];
+  const src={xlsx:'assets/lib/xlsx.js',jsqr:'assets/lib/jsqr.js',html2canvas:'assets/lib/html2canvas.js',zxing:'assets/lib/zxing.js',
+    gsi:'https://accounts.google.com/gsi/client'}[name];
   if(!src)return Promise.reject(new Error('רכיב לא מוכר: '+name));
   const pr=new Promise((res,rej)=>{
     const t=document.createElement('script');t.src=src;
@@ -3019,7 +3020,7 @@ function alertOf(e){const d=derive(e);
 /* ---------- state ---------- */
 let state=load();
 function defaults(){return{entries:JSON.parse(JSON.stringify(SEED)),tasks:{},shipments:[],labels:[],invLog:[],
-  settings:{title:'יקב טורא',sub:'ניהול מחסן',cloud:{url:'',token:'',auto:false,lastSync:''}},grid:{rows:20,cols:15},
+  settings:{title:'יקב טורא',sub:'ניהול מחסן',cloud:{url:'',token:'',auto:false,lastSync:''},gcalClientId:'',gcalReminderMins:30},grid:{rows:20,cols:15},
   taskCats:['תיוות יינות','הכנת הפצה','כוח אדם','סידור מחסן','משימות פתוחות'],dayCats:{},
   weekLabels:{}};}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.entries){const d=defaults();return Object.assign(d,s,{settings:Object.assign(d.settings,s.settings||{})});}}catch(e){}return defaults();}
@@ -3888,6 +3889,10 @@ function delShip(i){state.shipments.splice(i,1);save();renderShip();}
 function openSettings(){
   const s=state.settings;const box=document.getElementById('modalbox');box.className='box';
   const online=(typeof sbLoggedIn==='function'&&sbLoggedIn());
+  /* טוענים מראש את ספריית ה-OAuth של Google אם מוגדר Client ID, כדי שלחיצה
+     על "התחבר" תפתח את חלון ההרשאה מיד (בלי פער אסינכרוני שעלול לגרום
+     לדפדפן לחסום אותו כפופ-אפ לא-רצוי). */
+  if((s.gcalClientId||'').trim()&&typeof gcalEnsureLib==='function')gcalEnsureLib().catch(()=>{});
   box.innerHTML=`<h3>הגדרות</h3>
    <div class="field"><label>שם האפליקציה / היקב</label><input id="set_title" value="${esc(s.title)}"></div>
    <div class="field"><label>כותרת משנה</label><input id="set_sub" value="${esc(s.sub)}"></div>
@@ -3906,6 +3911,13 @@ function openSettings(){
        <div class="hint" style="margin:0 0 6px">⚠️ שינוי כאן משפיע על חישוב הארגזים והמשטחים בכל המסכים. לשנות רק לאחר אימות מול המציאות.</div>
        <button class="btn ghost" onclick="closeModal();openCatUnits()">📦 כמויות לפי קטגוריה</button>
        <button class="btn ghost" onclick="closeModal();openCapSettings()">🎨 קפסולות וצבעים</button></div>
+     <div class="field"><label>📅 חיבור ל-Google Calendar</label>
+       <div class="hint" style="margin:0 0 6px">משימות עם תאריך יעד אפשר לשלוח ליומן Google — התזכורת (פופאפ + התראה בנייד) מגיעה ישירות מ-Google, לא מהאפליקציה. דורש Client ID משלכם מ-Google Cloud Console (חד-פעמי) — <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">console.cloud.google.com/apis/credentials</a>: פרויקט חדש → מסך הסכמת OAuth (External, במצב Testing + הוסף את עצמך כ-Test user) → Credentials → Create OAuth Client ID → סוג Web application → Authorized JavaScript origins: הכתובת של האתר (וגם http://localhost:8843 לבדיקות).</div>
+       <input id="set_gcal_cid" dir="ltr" style="text-align:left" placeholder="Google OAuth Client ID" value="${esc(state.settings.gcalClientId||'')}" onchange="gcalSetClientId(this.value)">
+       <div class="field" style="margin:8px 0 0"><label>תזכורת כמה דקות לפני</label>
+         <input type="number" min="0" style="width:100px" value="${esc(state.settings.gcalReminderMins!=null?state.settings.gcalReminderMins:30)}" onchange="gcalSetReminderMins(this.value)"></div>
+       <div class="actions" style="margin-top:8px">
+         <button class="btn ghost sm" id="gcal_connect_btn" onclick="gcalConnectUI()">${gcalConnected()?'✓ מחובר — התחבר מחדש':'התחבר ל-Google'}</button></div></div>
      <div class="field"><label>שחזור נתונים</label>
        <div class="hint" style="margin:0 0 6px">10 הגרסאות האחרונות שנשמרו בענן.</div>
        <button class="btn ghost" onclick="openRestore()">🕘 שחזור גרסה קודמת</button>
@@ -5042,7 +5054,8 @@ function doRestore(id){return sbDoRestore(id);}
 function selfTest(){
   const T=[],ok=(n,c,d)=>T.push({n,pass:!!c,d:d||''});
   /* פונקציות קריטיות — תופס באגים של "שם כפול" שדרס פונקציה */
-  const need=['renderDash','renderMap','renderLoc','renderTasks','renderInv','renderShip','renderLabels','derive','save','refresh','capDisp','colorOf','printLabels','importLionWheel','sbPushChanged','sbSyncTable','sbBackupNow','sbDoRestore','openCapSettings','openCatUnits','tkQuickAdd','boardWeekHTML','bpb','bpp','capOf','isLabeled','backupNow','openRestore','maybeDailyBackup','saveOnExit','loadCustomCats','seedCatDefaults','sbPull','openResetSpots','doResetSpots','spotsPlaced','openAssign','assignTo','assignCandidates','addEntryAt','openDeduct','dedCandidates','dedApply','dedUndo','barcodeOf','findByBarcode','productByCode','openBarcodeScan','openBarcodeManager','openPicking','printPicking','pickingRows','saveRoute','openRoutes','loadRoute','openSupplyDay','supplyTotals','supplyPanelHTML','logInv','logImportDiff','renderInvLog','invLogFilter','invKeyOf','togglePicked','resetPicking','pickingProgress','sbFriendlyError','sbCompareBackup'];
+  const need=['renderDash','renderMap','renderLoc','renderTasks','renderInv','renderShip','renderLabels','derive','save','refresh','capDisp','colorOf','printLabels','importLionWheel','sbPushChanged','sbSyncTable','sbBackupNow','sbDoRestore','openCapSettings','openCatUnits','tkQuickAdd','boardWeekHTML','bpb','bpp','capOf','isLabeled','backupNow','openRestore','maybeDailyBackup','saveOnExit','loadCustomCats','seedCatDefaults','sbPull','openResetSpots','doResetSpots','spotsPlaced','openAssign','assignTo','assignCandidates','addEntryAt','openDeduct','dedCandidates','dedApply','dedUndo','barcodeOf','findByBarcode','productByCode','openBarcodeScan','openBarcodeManager','openPicking','printPicking','pickingRows','saveRoute','openRoutes','loadRoute','openSupplyDay','supplyTotals','supplyPanelHTML','logInv','logImportDiff','renderInvLog','invLogFilter','invKeyOf','togglePicked','resetPicking','pickingProgress','sbFriendlyError','sbCompareBackup',
+  'gcalEventBody','gcalPushTask','gcalRemoveTask','gcalFriendlyError','gcalConnectUI','gcalSetClientId','gcalSetReminderMins'];
   const has=n=>{try{return typeof eval(n)==='function';}catch(e){return false;}};
   const miss=need.filter(n=>!has(n));
   ok('כל '+need.length+' הפונקציות הקריטיות קיימות',!miss.length,miss.join(', '));
@@ -5724,7 +5737,8 @@ async function sbReplace(table,arr){
   }
 }
 function sbStateKV(){return[
-  ['settings',{title:state.settings.title,sub:state.settings.sub,labelTpl:state.settings.labelTpl,boxRules:state.settings.boxRules,catUnits:state.settings.catUnits,catPal:state.settings.catPal,capNums:state.settings.capNums,capColorMap:state.settings.capColorMap,capCatMap:state.settings.capCatMap,capColors:state.settings.capColors,catPalette:state.settings.catPalette,catColorMap:state.settings.catColorMap,barcodes:state.settings.barcodes}],
+  ['settings',{title:state.settings.title,sub:state.settings.sub,labelTpl:state.settings.labelTpl,boxRules:state.settings.boxRules,catUnits:state.settings.catUnits,catPal:state.settings.catPal,capNums:state.settings.capNums,capColorMap:state.settings.capColorMap,capCatMap:state.settings.capCatMap,capColors:state.settings.capColors,catPalette:state.settings.catPalette,catColorMap:state.settings.catColorMap,barcodes:state.settings.barcodes,
+    gcalClientId:state.settings.gcalClientId,gcalReminderMins:state.settings.gcalReminderMins}],
   ['tasks',state.tasks],['tasks2',state.tasks2||[]],['board',state.board||{}],['boardCats',state.boardCats||[]],['grid',state.grid],['taskCats',state.taskCats],
   ['weekLabels',state.weekLabels],['dayCats',state.dayCats||{}],['customCats',state.customCats||[]],['routes',state.routes||[]],['supply',state.supply||[]],['supplyItems',state.supplyItems||[]],
   ['pickingProgress',state.pickingProgress||{}]];}
@@ -6203,6 +6217,7 @@ function tkCard(t){
         ${(tkSort!=='due'&&t.due)?`<span class="tk-due ${od?'late':''}">${t.due}</span>`:''}
         ${pr?`<span class="tk-sub">☑ ${pr}</span>`:''}
         ${(t.photos||[]).length?`<span class="tk-ph">📷 ${(t.photos||[]).length}</span>`:''}
+        ${t.gcalEventId?`<span class="tk-ph" title="ביומן Google">📅</span>`:''}
         ${t.status==='doing'?`<span class="tk-doing">בתהליך</span>`:''}
       </div>
     </div>
@@ -6270,7 +6285,16 @@ function tkOpen(id,keep){
    </div>
    <div class="tk-row3">
      <div class="fld"><label>תאריך יעד</label><input type="date" value="${esc(t.due||'')}" onchange="tkSet(${id},'due',this.value)"></div>
+     <div class="fld"><label>שעה (אופציונלי)</label><input type="time" value="${esc(t.time||'')}" onchange="tkSet(${id},'time',this.value)"></div>
      </div>
+   <div class="field">
+     <label>📅 יומן Google</label>
+     ${t.gcalEventId?`<div class="hint" style="margin:0 0 6px">✓ ביומן Google · עודכן לאחרונה ${t.gcalSyncedAt?new Date(t.gcalSyncedAt).toLocaleString('he-IL'):''}</div>
+       <div class="actions"><button class="btn ghost sm" onclick="gcalPushTask(${id})">🔄 עדכן ביומן Google</button>
+       <button class="btn ghost sm" onclick="gcalRemoveTask(${id})">הסר מיומן Google</button></div>`:
+      `<div class="hint" style="margin:0 0 6px">${t.due?'שולח את המשימה ליומן Google עם תזכורת (יש לחבר Google קודם ב-⚙ הגדרות).':'צריך תאריך יעד קודם.'}</div>
+       <button class="btn ghost sm" ${t.due?'':'disabled'} onclick="gcalPushTask(${id})">📅 הוסף ליומן Google</button>`}
+   </div>
    <div class="fld"><label>תתי-משימות ${tkProgress(t)?'· '+tkProgress(t):''}</label>
      <div class="tk-subs">${(t.subs||[]).map((sx,i)=>`<div class="tk-subrow">
         <input type="checkbox" ${sx.done?'checked':''} onchange="tkSubToggle(${id},${i})">
@@ -6915,6 +6939,152 @@ function renderInvLog(){
   });
   h+=`</tbody></table></div><div class="hint">${rows.length} מתוך ${invLogArr().length} רשומות</div></div>`;
   document.getElementById('v-invlog').innerHTML=h;
+}
+
+
+/* assets/js/25-gcal.js */
+/* ============ חיבור ל-Google Calendar (למשימות עם תאריך/שעה) ============
+   עיצוב מכוון: אין שרת משלנו, אז אין "דחיפה" משלנו למכשיר כשהאפליקציה
+   סגורה — התזכורת נשענת כולה על ההתראות המובנות של Google Calendar
+   (פופאפ באפליקציית/אתר Google Calendar, כולל התראה בנייד). האסימון
+   (access token) נשאר בזיכרון הדפדפן בלבד לכל אורך העמוד הנוכחי —
+   לעולם לא נשמר ב-localStorage ולא מסתנכרן ל-Supabase; רק ה-Client ID
+   (לא סודי — מיועד להיות ציבורי בצד לקוח) נשמר ומסתנכרן כהגדרה רגילה. */
+let _gcalToken='',_gcalTokenExp=0,_gcalTokenClient=null,_gcalTokenClientCid='';
+function gcalConfigured(){return !!(state.settings.gcalClientId||'').trim();}
+function gcalConnected(){return !!(_gcalToken&&Date.now()<_gcalTokenExp);}
+function gcalFriendlyError(e){
+  const msg=(e&&e.message)||String(e||'');
+  if(msg==='__GCAL_NOT_CONNECTED__')return 'לא מחובר ל-Google Calendar — יש להתחבר קודם ב-⚙ הגדרות → הגדרות מתקדמות.';
+  if(/לא הוגדר Client ID/.test(msg))return 'צריך להגדיר Google Client ID בהגדרות מתקדמות קודם.';
+  if(/popup_closed|access_denied|user_cancel/i.test(msg))return 'החיבור ל-Google בוטל.';
+  if(/idpiframe_initialization_failed|invalid_client|redirect_uri_mismatch/i.test(msg))return 'ה-Client ID לא תקין, או שהדומיין הזה לא מורשה ב-Google Cloud Console.';
+  if(/לא זמין \(בלי אינטרנט|טעינת רכיב נכשלה/.test(msg))return 'אין חיבור לאינטרנט — לא ניתן להתחבר ל-Google כרגע.';
+  if(/failed to fetch|networkerror/i.test(msg))return 'אין חיבור לאינטרנט — לא ניתן להתחבר ל-Google כרגע.';
+  if(/^\(401\)/.test(msg))return 'ההרשאה מול Google פגה — יש להתחבר שוב.';
+  if(/^\(403\)/.test(msg))return 'Google חסם את הבקשה (בדוק שה-Calendar API מופעל בפרויקט שלך ב-Google Cloud Console).';
+  if(/^\(404\)|^\(410\)/.test(msg))return 'האירוע לא נמצא ביומן Google (אולי נמחק שם ידנית).';
+  if(/^\(429\)/.test(msg))return 'יותר מדי פניות ל-Google בזמן קצר — נסה שוב בעוד רגע.';
+  return msg||'שגיאה לא ידועה מול Google';
+}
+/* טוען את ספריית ה-OAuth של Google (חיצונית — לא נטענת בקובץ החירום,
+   שם needLib מוחלף בפונקציה שמדלגת על טעינה — שם ההתחברות פשוט לא זמינה,
+   וזה תקין: קובץ החירום מיועד לשימוש בלי אינטרנט מלכתחילה). */
+function gcalEnsureLib(){
+  return needLib('gsi').then(()=>{
+    if(typeof google==='undefined'||!google.accounts||!google.accounts.oauth2)
+      throw new Error('חיבור ל-Google לא זמין (בלי אינטרנט, או בקובץ החירום).');
+  });
+}
+/* מתחברים — תמיד ביוזמת לחיצה מפורשת של המשתמש (כפתור), כדי שחלון
+   ה-OAuth של Google לא ייחסם כפופ-אפ לא-רצוי. */
+async function gcalConnectUI(){
+  if(!gcalConfigured()){toast('קודם הכנס Google Client ID למעלה');return;}
+  const btn=document.getElementById('gcal_connect_btn');
+  if(btn){btn.disabled=true;btn.textContent='מתחבר…';}
+  try{
+    await gcalEnsureLib();
+    await new Promise((resolve,reject)=>{
+      const cid=state.settings.gcalClientId.trim();
+      if(!_gcalTokenClient||_gcalTokenClientCid!==cid){
+        _gcalTokenClientCid=cid;
+        _gcalTokenClient=google.accounts.oauth2.initTokenClient({
+          client_id:cid,
+          scope:'https://www.googleapis.com/auth/calendar.events',
+          callback:(resp)=>{
+            if(resp&&resp.access_token){
+              _gcalToken=resp.access_token;
+              _gcalTokenExp=Date.now()+((resp.expires_in||3500)*1000);
+              resolve();
+            }else reject(new Error((resp&&(resp.error_description||resp.error))||'לא התקבלה הרשאה מ-Google'));
+          }
+        });
+      }
+      _gcalTokenClient.requestAccessToken({prompt:'consent'});
+    });
+    toast('התחברת ל-Google Calendar ✓');
+  }catch(e){toast('החיבור נכשל: '+gcalFriendlyError(e));}
+  finally{if(btn){btn.disabled=false;btn.textContent=gcalConnected()?'✓ מחובר — התחבר מחדש':'התחבר ל-Google';}}
+}
+function gcalSetClientId(v){state.settings.gcalClientId=String(v||'').trim();save();}
+function gcalSetReminderMins(v){state.settings.gcalReminderMins=Math.max(0,+v||0);save();}
+
+function gcalPad(n){return String(n).padStart(2,'0');}
+/* בונה את גוף האירוע ל-Calendar API ממשימה. עם שעה -> אירוע של 30 דקות;
+   בלי שעה -> אירוע "יום שלם". התזכורת תמיד מוגדרת מפורשות (לא ברירת מחדל
+   של Google) כדי שתשקף את מה שהוגדר בהגדרות האפליקציה. */
+function gcalEventBody(t){
+  const reminderMins=Math.max(0,+state.settings.gcalReminderMins||0);
+  const tz=(Intl.DateTimeFormat().resolvedOptions().timeZone)||'Asia/Jerusalem';
+  const body={summary:t.title||'(ללא כותרת)',
+    description:(t.notes||'')+(t.notes?'\n\n':'')+'נוצר אוטומטית מ-'+(state.settings.title||'יקב טורא')+(t.zone?' · אזור: '+t.zone:'')};
+  if(t.time){
+    const start=new Date(t.due+'T'+t.time+':00');
+    const end=new Date(start.getTime()+30*60000);
+    /* מחרוזת שעון-קיר מקומי (בלי אזור זמן מוטבע) — התזוזה נקבעת ע"י timeZone למטה */
+    const iso=d=>d.getFullYear()+'-'+gcalPad(d.getMonth()+1)+'-'+gcalPad(d.getDate())+'T'+gcalPad(d.getHours())+':'+gcalPad(d.getMinutes())+':00';
+    body.start={dateTime:iso(start),timeZone:tz};
+    body.end={dateTime:iso(end),timeZone:tz};
+  }else{
+    const end=new Date(t.due+'T00:00:00');end.setDate(end.getDate()+1);
+    body.start={date:t.due};
+    body.end={date:end.getFullYear()+'-'+gcalPad(end.getMonth()+1)+'-'+gcalPad(end.getDate())};
+  }
+  body.reminders={useDefault:false,overrides:[{method:'popup',minutes:reminderMins}]};
+  return body;
+}
+async function gcalHandle(r){
+  const txt=await r.text();
+  let j=null;try{j=txt?JSON.parse(txt):null;}catch(e){}
+  if(!r.ok){
+    const msg=(j&&j.error&&(j.error.message||j.error))||txt||('שגיאה '+r.status);
+    throw new Error('('+r.status+') '+String(msg).slice(0,160));
+  }
+  return j;
+}
+async function gcalApi(method,path,body){
+  if(!gcalConnected())throw new Error('__GCAL_NOT_CONNECTED__');
+  const r=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events'+path,{
+    method,headers:{'Authorization':'Bearer '+_gcalToken,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined});
+  if(r.status===401){_gcalToken='';_gcalTokenExp=0;throw new Error('__GCAL_NOT_CONNECTED__');}
+  return gcalHandle(r);
+}
+/* יוצר/מעדכן אירוע ביומן Google עבור משימה. לא-הרסני: אם האירוע הישן
+   נמחק ביד ב-Google (404/410), פשוט יוצרים חדש במקום לזרוק שגיאה. */
+async function gcalPushTask(id){
+  const t=(typeof tkFind==='function')?tkFind(id):null;if(!t)return;
+  if(!t.due){toast('צריך קודם תאריך יעד למשימה');return;}
+  if(!gcalConfigured()){toast('קודם הגדר Google Client ID ב-⚙ הגדרות → הגדרות מתקדמות');return;}
+  try{
+    const body=gcalEventBody(t);
+    let ev;
+    if(t.gcalEventId){
+      try{ev=await gcalApi('PATCH','/'+encodeURIComponent(t.gcalEventId),body);}
+      catch(e){
+        if(/^\(404\)|^\(410\)/.test(e.message)){t.gcalEventId='';ev=await gcalApi('POST','',body);}
+        else throw e;
+      }
+    }else{
+      ev=await gcalApi('POST','',body);
+    }
+    t.gcalEventId=ev.id;t.gcalSyncedAt=new Date().toISOString();
+    if(typeof tkLog==='function')tkLog(t,'סונכרן ליומן Google');
+    save();
+    toast('נוסף ליומן Google ✓ (תזכורת '+Math.max(0,+state.settings.gcalReminderMins||0)+' דק׳ לפני)');
+    if(typeof tkOpen==='function'&&document.getElementById('modal').classList.contains('open'))tkOpen(id,true);
+    else if(typeof renderTasks==='function')renderTasks();
+  }catch(e){toast('סנכרון ל-Google נכשל: '+gcalFriendlyError(e));}
+}
+async function gcalRemoveTask(id){
+  const t=(typeof tkFind==='function')?tkFind(id):null;if(!t||!t.gcalEventId)return;
+  try{await gcalApi('DELETE','/'+encodeURIComponent(t.gcalEventId));}
+  catch(e){if(!/^\(404\)|^\(410\)/.test(e.message)){toast('הסרה מ-Google נכשלה: '+gcalFriendlyError(e));return;}}
+  t.gcalEventId='';t.gcalSyncedAt='';
+  if(typeof tkLog==='function')tkLog(t,'הוסר מיומן Google');
+  save();
+  if(typeof tkOpen==='function')tkOpen(id,true);
+  toast('הוסר מיומן Google');
 }
 
 

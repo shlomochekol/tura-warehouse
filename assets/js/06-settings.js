@@ -2,6 +2,10 @@
 function openSettings(){
   const s=state.settings;const box=document.getElementById('modalbox');box.className='box';
   const online=(typeof sbLoggedIn==='function'&&sbLoggedIn());
+  /* טוענים מראש את ספריית ה-OAuth של Google אם מוגדר Client ID, כדי שלחיצה
+     על "התחבר" תפתח את חלון ההרשאה מיד (בלי פער אסינכרוני שעלול לגרום
+     לדפדפן לחסום אותו כפופ-אפ לא-רצוי). */
+  if((s.gcalClientId||'').trim()&&typeof gcalEnsureLib==='function')gcalEnsureLib().catch(()=>{});
   box.innerHTML=`<h3>הגדרות</h3>
    <div class="field"><label>שם האפליקציה / היקב</label><input id="set_title" value="${esc(s.title)}"></div>
    <div class="field"><label>כותרת משנה</label><input id="set_sub" value="${esc(s.sub)}"></div>
@@ -20,6 +24,13 @@ function openSettings(){
        <div class="hint" style="margin:0 0 6px">⚠️ שינוי כאן משפיע על חישוב הארגזים והמשטחים בכל המסכים. לשנות רק לאחר אימות מול המציאות.</div>
        <button class="btn ghost" onclick="closeModal();openCatUnits()">📦 כמויות לפי קטגוריה</button>
        <button class="btn ghost" onclick="closeModal();openCapSettings()">🎨 קפסולות וצבעים</button></div>
+     <div class="field"><label>📅 חיבור ל-Google Calendar</label>
+       <div class="hint" style="margin:0 0 6px">משימות עם תאריך יעד אפשר לשלוח ליומן Google — התזכורת (פופאפ + התראה בנייד) מגיעה ישירות מ-Google, לא מהאפליקציה. דורש Client ID משלכם מ-Google Cloud Console (חד-פעמי) — <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">console.cloud.google.com/apis/credentials</a>: פרויקט חדש → מסך הסכמת OAuth (External, במצב Testing + הוסף את עצמך כ-Test user) → Credentials → Create OAuth Client ID → סוג Web application → Authorized JavaScript origins: הכתובת של האתר (וגם http://localhost:8843 לבדיקות).</div>
+       <input id="set_gcal_cid" dir="ltr" style="text-align:left" placeholder="Google OAuth Client ID" value="${esc(state.settings.gcalClientId||'')}" onchange="gcalSetClientId(this.value)">
+       <div class="field" style="margin:8px 0 0"><label>תזכורת כמה דקות לפני</label>
+         <input type="number" min="0" style="width:100px" value="${esc(state.settings.gcalReminderMins!=null?state.settings.gcalReminderMins:30)}" onchange="gcalSetReminderMins(this.value)"></div>
+       <div class="actions" style="margin-top:8px">
+         <button class="btn ghost sm" id="gcal_connect_btn" onclick="gcalConnectUI()">${gcalConnected()?'✓ מחובר — התחבר מחדש':'התחבר ל-Google'}</button></div></div>
      <div class="field"><label>שחזור נתונים</label>
        <div class="hint" style="margin:0 0 6px">10 הגרסאות האחרונות שנשמרו בענן.</div>
        <button class="btn ghost" onclick="openRestore()">🕘 שחזור גרסה קודמת</button>

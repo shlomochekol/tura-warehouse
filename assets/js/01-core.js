@@ -2,7 +2,8 @@
 const _libs={};
 function needLib(name){
   if(_libs[name])return _libs[name];
-  const src={xlsx:'assets/lib/xlsx.js',jsqr:'assets/lib/jsqr.js',html2canvas:'assets/lib/html2canvas.js',zxing:'assets/lib/zxing.js'}[name];
+  const src={xlsx:'assets/lib/xlsx.js',jsqr:'assets/lib/jsqr.js',html2canvas:'assets/lib/html2canvas.js',zxing:'assets/lib/zxing.js',
+    gsi:'https://accounts.google.com/gsi/client'}[name];
   if(!src)return Promise.reject(new Error('רכיב לא מוכר: '+name));
   const pr=new Promise((res,rej)=>{
     const t=document.createElement('script');t.src=src;
@@ -157,7 +158,7 @@ function alertOf(e){const d=derive(e);
 /* ---------- state ---------- */
 let state=load();
 function defaults(){return{entries:JSON.parse(JSON.stringify(SEED)),tasks:{},shipments:[],labels:[],invLog:[],
-  settings:{title:'יקב טורא',sub:'ניהול מחסן',cloud:{url:'',token:'',auto:false,lastSync:''}},grid:{rows:20,cols:15},
+  settings:{title:'יקב טורא',sub:'ניהול מחסן',cloud:{url:'',token:'',auto:false,lastSync:''},gcalClientId:'',gcalReminderMins:30},grid:{rows:20,cols:15},
   taskCats:['תיוות יינות','הכנת הפצה','כוח אדם','סידור מחסן','משימות פתוחות'],dayCats:{},
   weekLabels:{}};}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.entries){const d=defaults();return Object.assign(d,s,{settings:Object.assign(d.settings,s.settings||{})});}}catch(e){}return defaults();}

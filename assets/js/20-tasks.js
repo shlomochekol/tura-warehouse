@@ -191,6 +191,7 @@ function tkCard(t){
         ${(tkSort!=='due'&&t.due)?`<span class="tk-due ${od?'late':''}">${t.due}</span>`:''}
         ${pr?`<span class="tk-sub">☑ ${pr}</span>`:''}
         ${(t.photos||[]).length?`<span class="tk-ph">📷 ${(t.photos||[]).length}</span>`:''}
+        ${t.gcalEventId?`<span class="tk-ph" title="ביומן Google">📅</span>`:''}
         ${t.status==='doing'?`<span class="tk-doing">בתהליך</span>`:''}
       </div>
     </div>
@@ -258,7 +259,16 @@ function tkOpen(id,keep){
    </div>
    <div class="tk-row3">
      <div class="fld"><label>תאריך יעד</label><input type="date" value="${esc(t.due||'')}" onchange="tkSet(${id},'due',this.value)"></div>
+     <div class="fld"><label>שעה (אופציונלי)</label><input type="time" value="${esc(t.time||'')}" onchange="tkSet(${id},'time',this.value)"></div>
      </div>
+   <div class="field">
+     <label>📅 יומן Google</label>
+     ${t.gcalEventId?`<div class="hint" style="margin:0 0 6px">✓ ביומן Google · עודכן לאחרונה ${t.gcalSyncedAt?new Date(t.gcalSyncedAt).toLocaleString('he-IL'):''}</div>
+       <div class="actions"><button class="btn ghost sm" onclick="gcalPushTask(${id})">🔄 עדכן ביומן Google</button>
+       <button class="btn ghost sm" onclick="gcalRemoveTask(${id})">הסר מיומן Google</button></div>`:
+      `<div class="hint" style="margin:0 0 6px">${t.due?'שולח את המשימה ליומן Google עם תזכורת (יש לחבר Google קודם ב-⚙ הגדרות).':'צריך תאריך יעד קודם.'}</div>
+       <button class="btn ghost sm" ${t.due?'':'disabled'} onclick="gcalPushTask(${id})">📅 הוסף ליומן Google</button>`}
+   </div>
    <div class="fld"><label>תתי-משימות ${tkProgress(t)?'· '+tkProgress(t):''}</label>
      <div class="tk-subs">${(t.subs||[]).map((sx,i)=>`<div class="tk-subrow">
         <input type="checkbox" ${sx.done?'checked':''} onchange="tkSubToggle(${id},${i})">

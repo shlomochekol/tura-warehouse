@@ -1,4 +1,4 @@
-const CACHE='mwe-v10';
+const CACHE='mwe-v11';
 const ASSETS=['./',
   'index.html',
   'manifest.webmanifest',
@@ -29,6 +29,8 @@ const ASSETS=['./',
   'assets/js/21-picking.js',
   'assets/js/22-supply.js',
   'assets/js/23-deduct.js',
+  'assets/js/24-invlog.js',
+  'assets/js/25-gcal.js',
   'assets/js/99-boot.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
