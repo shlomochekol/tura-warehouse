@@ -181,7 +181,7 @@ function locRowHTML(e){
      <td><span class="tag" style="${colorStyle(col)}">${esc(colorName(col))}</span></td>
      <td><select class="capsel" style="${capStyle(cap[1])}" onchange="setCapsule(${e.id},this.value)">${capNums().map(n=>`<option ${cap[0]===n?'selected':''}>${esc(n)}</option>`).join('')}</select></td>
      <td><select onchange="setF(${e.id},'label',this.value)">${LABELS.map(l=>`<option ${e.label===l?'selected':''}>${esc(l)}</option>`).join('')}</select></td>
-     <td class="bcell">${(()=>{const b=barcodeOf(e);return b?`<span class="bctag" onclick="openBarcodeResult('${b}')" title="הצג היכן במחסן">${esc(b)}</span>`:'<span class="bcnone">—</span>';})()}</td><td><input value="${esc(e.notes||'')}" onchange="setF(${e.id},'notes',this.value)" data-eid="${esc(e.id)}" data-f="notes"></td>
+     <td class="bcell">${(()=>{const b=barcodeOf(e);return b?`<span class="bctag" onclick="openEntryBarcode(${e.id})" title="לחץ לעריכה/מחיקה">${esc(b)}</span>`:`<span class="bcnone" onclick="openEntryBarcode(${e.id})" title="לחץ להוספת ברקוד" style="cursor:pointer">—</span>`;})()}</td><td><input value="${esc(e.notes||'')}" onchange="setF(${e.id},'notes',this.value)" data-eid="${esc(e.id)}" data-f="notes"></td>
      <td><button class="del" aria-label="מחיקה" onmousedown="if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()" onclick="delEntry(${e.id})">✕</button></td></tr>`;
 }
 function renderLocRow(id){

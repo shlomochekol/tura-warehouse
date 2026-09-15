@@ -2,29 +2,89 @@
 let _bcIdx=null;
 /* נרמול אחיד — מסיר רווחים, מקפים ואפסים מובילים */
 function normBc(v){const t=String(v==null?'':v).trim().replace(/[\s-]/g,'');return t.replace(/^0+(?=\d)/,'');}
+/* מנרמל את שדה "מבושל" למפתח התאמה — רק "מבושל" עצמו נחשב שונה;
+   "לא מבושל" וריק מתייחסים כאותו הדבר (ברירת מחדל = לא מבושל) */
+function bcCookKey(v){return v==='מבושל'?'מבושל':'';}
+/* מפתח ההתאמה של פריט מלאי: קטגוריה+בציר+סוג+מבושל. חובה לכלול "מבושל" —
+   ליין מבושל ולא-מבושל מאותה קטגוריה/בציר/סוג יש ברקוד שונה בפועל. */
+function bcKeyOf(e){return (e.category||'')+'|'+(e.vintage||'')+'|'+(e.type||'')+'|'+bcCookKey(e&&e.cooked);}
+/* מפתח "ישן" (בלי מבושל) — לתאימות לאחור מול ברקודים שהוזנו ידנית
+   לפני התיקון הזה, כשלא הייתה הבחנה. */
+function bcKeyLegacy(e){return (e.category||'')+'|'+(e.vintage||'')+'|'+(e.type||'');}
 function bcIndex(){
   if(_bcIdx)return _bcIdx;
-  const byKey={},byCode={};
+  const byKey={},byCode={},seen={};
+  const addKey=(kk,b)=>{
+    if(seen[kk]===undefined){seen[kk]=b;byKey[kk]=b;}
+    else if(seen[kk]!==b)byKey[kk]='';           // שני מוצרים שונים על אותו מפתח — לא מנחשים, לא ממתאמים אוטומטית
+  };
   (typeof PRODUCTS!=='undefined'?PRODUCTS:[]).forEach(p=>{
     if(p.b)byCode[normBc(p.b)]=p;
     if(p.c&&p.v&&p.t){
-      byKey[p.c+'|'+p.v+'|'+p.t]=p.b;
+      const ck=bcCookKey(p.k);
+      addKey(p.c+'|'+p.v+'|'+p.t+'|'+ck,p.b);
       if(p.t==='יין שיווק')                      // ארכיון = אותו בקבוק
-        if(!byKey[p.c+'|'+p.v+'|ארכיון'])byKey[p.c+'|'+p.v+'|ארכיון']=p.b;
+        addKey(p.c+'|'+p.v+'|ארכיון|'+ck,p.b);
     }
   });
   _bcIdx={byKey,byCode};return _bcIdx;
 }
-/* הברקוד של פריט מלאי — ידני אם הוזן, אחרת מהקטלוג */
+/* הברקוד של פריט מלאי — ידני אם הוזן, אחרת ברקוד קבוצתי (כולל הבחנת
+   מבושל/לא-מבושל), אחרת מהקטלוג. */
 function barcodeOf(e){
   if(!e)return '';
   if(e.barcode)return String(e.barcode);                       // ברקוד על הפריט עצמו
-  const k=(e.category||'')+'|'+(e.vintage||'')+'|'+(e.type||'');
-  try{const c=(state.settings&&state.settings.barcodes)||{};   // ברקוד שהוזן ידנית לקבוצה
-    if(c[k])return String(c[k]);}catch(err){}
+  const k=bcKeyOf(e);
+  try{
+    const c=(state.settings&&state.settings.barcodes)||{};      // ברקוד שהוזן ידנית לקבוצה
+    if(c[k])return String(c[k]);
+    const legacy=bcKeyLegacy(e);
+    if(legacy!==k&&c[legacy])return String(c[legacy]);          // תאימות לאחור לברקודים שהוזנו לפני התיקון
+  }catch(err){}
   return bcIndex().byKey[k]||'';
 }
 function productByCode(code){return bcIndex().byCode[normBc(code)]||null;}
+/* ============ עריכת ברקוד ישירות משורת "מיקום במחסן" ============
+   עד כה אפשר היה רק לצפות (openBarcodeResult) — אין דרך לתקן/למחוק
+   ברקוד שגוי בלי לחפש אותו במסך "ניהול ברקודים" הנפרד. */
+let _bcAssignEntryId=null;
+function scanForEntry(id){_bcAssignEntryId=id;closeModal();openBarcodeScan();}
+function openEntryBarcode(id){
+  const e=(state.entries||[]).find(x=>x.id===id);if(!e)return;
+  const box=document.getElementById('modalbox');box.className='box';
+  const key=bcKeyOf(e);
+  const groupBc=customBc()[key]||customBc()[bcKeyLegacy(e)]||'';
+  const catalogBc=bcIndex().byKey[key]||'';
+  const eff=barcodeOf(e);
+  const source=e.barcode?'הוזן ידנית על הפריט הזה בלבד':(groupBc?'ברקוד קבוצתי שהוזן ידנית':(catalogBc?'מהקטלוג':''));
+  box.innerHTML=`<h3>ברקוד — ${esc(e.category||'')} ${esc(e.vintage||'')}</h3>
+   <div class="hint">${esc(e.type||'')}${e.cooked?' · '+esc(e.cooked):' · לא מבושל'} — יין מבושל ולא-מבושל מאותה קטגוריה/בציר/סוג נשמרים כברקודים נפרדים.</div>
+   <div class="hint" style="margin-top:6px">${eff?('הברקוד הנוכחי: <b style="font-family:monospace">'+esc(eff)+'</b>'+(source?' · '+esc(source):'')):'אין ברקוד לפריט הזה כרגע.'}</div>
+   <div class="fld" style="margin-top:10px"><label>ברקוד לפריט הזה בלבד (גובר על הכול)</label>
+     <input value="${esc(e.barcode||'')}" placeholder="—" style="font-family:monospace" onchange="setEntryOwnBarcode(${id},this.value)"></div>
+   <div class="fld"><label>ברקוד לכל הקבוצה (${esc(e.category||'')} · ${esc(e.vintage||'')} · ${esc(e.type||'')} · ${e.cooked?esc(e.cooked):'לא מבושל'})</label>
+     <input value="${esc(groupBc)}" placeholder="${esc(catalogBc||'—')}" style="font-family:monospace" onchange="setBarcodeFor('${key.replace(/'/g,"\\'")}',this.value);openEntryBarcode(${id})"></div>
+   <div class="actions">
+     <button class="btn ghost" onclick="scanForEntry(${id})">📷 סרוק ברקוד לפריט הזה</button>
+     ${eff?`<button class="btn warn" onclick="deleteEntryBarcode(${id})">מחק ברקוד</button>`:''}
+     <button class="btn" onclick="closeModal();if(!renderLocRow(${id}))refresh();">סגור</button>
+   </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+function setEntryOwnBarcode(id,v){
+  const e=(state.entries||[]).find(x=>x.id===id);if(!e)return;
+  v=String(v||'').trim();
+  if(v)e.barcode=v;else delete e.barcode;
+  _bcIdx=null;save();openEntryBarcode(id);
+}
+/* מחיקה "חכמה": קודם ברקוד שהוזן ישירות על הפריט, אחרת הברקוד הקבוצתי
+   (חוזר אז למה שבקטלוג, אם יש) */
+function deleteEntryBarcode(id){
+  const e=(state.entries||[]).find(x=>x.id===id);if(!e)return;
+  if(e.barcode)delete e.barcode;
+  else{const c=customBc();delete c[bcKeyOf(e)];delete c[bcKeyLegacy(e)];}
+  _bcIdx=null;save();openEntryBarcode(id);
+}
 /* איפה במחסן נמצא מוצר לפי ברקוד */
 function findByBarcode(code){
   const p=productByCode(code);
@@ -129,6 +189,10 @@ function bcHit(val){
   _bcLast=val;_bcLastT=now;
   if(navigator.vibrate)navigator.vibrate(60);
   closeBarcodeScan();
+  if(_bcAssignEntryId!=null){const id=_bcAssignEntryId;_bcAssignEntryId=null;
+    const e=(state.entries||[]).find(x=>x.id===id);
+    if(e){e.barcode=val;_bcIdx=null;save();toast('הברקוד נשמר לפריט: '+val);}
+    openEntryBarcode(id);return;}
   if(_bcAssignKey){const k=_bcAssignKey;_bcAssignKey=null;
     customBc()[k]=val;_bcIdx=null;save();toast('הברקוד נשמר: '+val);openBarcodeManager();return;}
   openBarcodeResult(val);
@@ -170,14 +234,13 @@ function toInt32(imgData){
 }
 /* ============ ניהול ברקודים: הוספה ועריכה ============ */
 function customBc(){if(!state.settings.barcodes)state.settings.barcodes={};return state.settings.barcodes;}
-function bcKeyOf(e){return (e.category||'')+'|'+(e.vintage||'')+'|'+(e.type||'');}
 let _bcQ='',_bcOnlyMissing=false;
 function openBarcodeManager(){
   const box=document.getElementById('modalbox');box.className='box wide';
   const groups={};
   (state.entries||[]).forEach(e=>{
     const k=bcKeyOf(e);
-    if(!groups[k])groups[k]={cat:e.category,v:e.vintage,t:e.type,n:0,units:0};
+    if(!groups[k])groups[k]={cat:e.category,v:e.vintage,t:e.type,cooked:e.cooked||'',n:0,units:0};
     groups[k].n++;groups[k].units+=+e.units||0;
   });
   /* ברקוד שהוזן ישירות על פריט בודד — מוצג גם הוא */
@@ -185,28 +248,28 @@ function openBarcodeManager(){
   (state.entries||[]).forEach(e=>{if(e.barcode)perItem[bcKeyOf(e)]=String(e.barcode);});
   let L=Object.keys(groups).map(k=>{
     const g=groups[k];
-    const grpBc=barcodeOf({category:g.cat,vintage:g.v,type:g.t});
+    const grpBc=barcodeOf({category:g.cat,vintage:g.v,type:g.t,cooked:g.cooked});
     return {k,...g,bc:perItem[k]||grpBc,
       custom:!!customBc()[k],onItem:!!perItem[k]};});
   if(_bcOnlyMissing)L=L.filter(x=>!x.bc);
-  if(_bcQ){const q=_bcQ.toLowerCase();L=L.filter(x=>(x.cat+' '+x.v+' '+x.t+' '+x.bc).toLowerCase().indexOf(q)>=0);}
+  if(_bcQ){const q=_bcQ.toLowerCase();L=L.filter(x=>(x.cat+' '+x.v+' '+x.t+' '+x.cooked+' '+x.bc).toLowerCase().indexOf(q)>=0);}
   L.sort((a,b)=>(a.cat||'').localeCompare(b.cat||'','he')||String(b.v).localeCompare(String(a.v)));
-  const missing=Object.keys(groups).filter(k=>{const g=groups[k];return !barcodeOf({category:g.cat,vintage:g.v,type:g.t});}).length;
+  const missing=Object.keys(groups).filter(k=>{const g=groups[k];return !barcodeOf({category:g.cat,vintage:g.v,type:g.t,cooked:g.cooked});}).length;
   box.innerHTML=`<h3>ניהול ברקודים</h3>
-   <div class="hint">ברקוד שמוזן כאן גובר על הקטלוג. השורות מקובצות לפי קטגוריה · בציר · סוג.</div>
+   <div class="hint">ברקוד שמוזן כאן גובר על הקטלוג. השורות מקובצות לפי קטגוריה · בציר · סוג · מבושל/לא — ליין מבושל ולא-מבושל מאותה קטגוריה/בציר/סוג יש ברקוד שונה ונשמר בנפרד.</div>
    <div class="tk-row3" style="margin:8px 0">
      <div class="fld"><label>חיפוש</label><input id="bcq" value="${esc(_bcQ)}" placeholder="קטגוריה / בציר / ברקוד" oninput="_bcQ=this.value;openBarcodeManager()"></div>
      <div class="fld"><label>&nbsp;</label><label class="chk"><input type="checkbox" ${_bcOnlyMissing?'checked':''} onchange="_bcOnlyMissing=this.checked;openBarcodeManager()"> רק ללא ברקוד (${missing})</label></div>
      <div class="fld"><label>&nbsp;</label><button class="btn ghost sm" onclick="openBarcodeScanFor()">📷 סרוק והוסף</button></div>
    </div>
    <div class="tablewrap" style="max-height:340px"><table><thead><tr>
-     <th>קטגוריה</th><th>בציר</th><th>סוג</th><th>מיקומים</th><th>ברקוד</th><th></th></tr></thead><tbody>
+     <th>קטגוריה</th><th>בציר</th><th>סוג</th><th>מבושל</th><th>מיקומים</th><th>ברקוד</th><th></th></tr></thead><tbody>
    ${L.slice(0,200).map(x=>`<tr>
-     <td>${esc(x.cat||'')}</td><td>${esc(x.v||'')}</td><td>${esc(x.t||'')}</td><td>${esc(x.n)}</td>
+     <td>${esc(x.cat||'')}</td><td>${esc(x.v||'')}</td><td>${esc(x.t||'')}</td><td>${esc(x.cooked||'—')}</td><td>${esc(x.n)}</td>
      <td><input value="${esc(x.bc||'')}" placeholder="—" style="width:150px;font-family:monospace"
         onchange="setBarcodeFor('${x.k.replace(/'/g,"\\\\'")}',this.value)">${x.custom?' <span class="bctag" title="הוזן ידנית">✎</span>':''}${x.onItem?' <span class="bctag" title="ברקוד על הפריט עצמו">📌</span>':''}</td>
      <td>${x.custom?`<button class="del" title="חזור לקטלוג" aria-label="חזור לקטלוג" onclick="clearBarcodeFor('${x.k.replace(/'/g,"\\\\'")}')">↺</button>`:''}</td></tr>`).join('')}
-   ${L.length>200?`<tr><td colspan=6 style="color:var(--muted)">…ועוד ${L.length-200}</td></tr>`:''}
+   ${L.length>200?`<tr><td colspan=7 style="color:var(--muted)">…ועוד ${L.length-200}</td></tr>`:''}
    </tbody></table></div>
    <div class="actions"><button class="btn" onclick="closeModal();refresh()">סגור</button></div>`;
   document.getElementById('modal').classList.add('open');
@@ -227,14 +290,14 @@ function clearBarcodeFor(key){
 let _bcAssignKey=null;
 function openBarcodeScanFor(){
   const groups={};
-  (state.entries||[]).forEach(e=>{const k=bcKeyOf(e);if(!groups[k])groups[k]={cat:e.category,v:e.vintage,t:e.type};});
-  const missing=Object.keys(groups).filter(k=>!barcodeOf({category:groups[k].cat,vintage:groups[k].v,type:groups[k].t}));
+  (state.entries||[]).forEach(e=>{const k=bcKeyOf(e);if(!groups[k])groups[k]={cat:e.category,v:e.vintage,t:e.type,cooked:e.cooked||''};});
+  const missing=Object.keys(groups).filter(k=>!barcodeOf({category:groups[k].cat,vintage:groups[k].v,type:groups[k].t,cooked:groups[k].cooked}));
   if(!missing.length){toast('לכל הפריטים כבר יש ברקוד');return;}
   const box=document.getElementById('modalbox');box.className='box';
   box.innerHTML=`<h3>סרוק והוסף ברקוד</h3>
    <div class="hint">בחר את המוצר, ואז סרוק את הבקבוק — הברקוד יישמר אליו.</div>
-   <div class="tablewrap" style="max-height:300px"><table><thead><tr><th>קטגוריה</th><th>בציר</th><th>סוג</th><th></th></tr></thead><tbody>
-   ${missing.map(k=>`<tr><td>${esc(groups[k].cat||'')}</td><td>${esc(groups[k].v||'')}</td><td>${esc(groups[k].t||'')}</td>
+   <div class="tablewrap" style="max-height:300px"><table><thead><tr><th>קטגוריה</th><th>בציר</th><th>סוג</th><th>מבושל</th><th></th></tr></thead><tbody>
+   ${missing.map(k=>`<tr><td>${esc(groups[k].cat||'')}</td><td>${esc(groups[k].v||'')}</td><td>${esc(groups[k].t||'')}</td><td>${esc(groups[k].cooked||'—')}</td>
      <td><button class="btn sm" onclick="scanForKey('${k.replace(/'/g,"\\\\'")}')">📷 סרוק</button></td></tr>`).join('')}
    </tbody></table></div>
    <div class="actions"><button class="btn ghost" onclick="openBarcodeManager()">חזרה</button></div>`;

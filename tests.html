@@ -214,6 +214,43 @@ if (typeof activate === 'function') activate(0);
     _gcalToken = bakToken; _gcalTokenExp = bakExp;
   } catch (e) { ok('gcal: הגנת "לא מחובר" לא קרסה', false, e.message); }
 
+  // ---- ברקודים: מבושל ולא-מבושל מאותה קטגוריה/בציר/סוג לא דורסים זה את זה ----
+  try {
+    // התקרית האמיתית שבקטלוג: MP 2020 מגנומים — "Magnum Mountain Peak 2020 Mevushal" (87752031803, k:מבושל)
+    // מול "מגנום Mountain Peak 2020" (7290019158158, בלי k) — לפני התיקון שניהם חלקו את אותו מפתח
+    // קטגוריה|בציר|סוג בלבד, והמאוחר בקטלוג היה "מנצח" ומוצג לשני הסוגים.
+    const cooked = { category: 'MP', vintage: '2020', type: 'מגנומים', cooked: 'מבושל' };
+    const notCooked = { category: 'MP', vintage: '2020', type: 'מגנומים', cooked: 'לא מבושל' };
+    ok('ברקוד: MP 2020 מגנומים מבושל -> הברקוד הנכון של הגרסה המבושלת', barcodeOf(cooked) === '87752031803', barcodeOf(cooked));
+    ok('ברקוד: MP 2020 מגנומים לא-מבושל -> הברקוד הנכון של הגרסה הלא-מבושלת', barcodeOf(notCooked) === '7290019158158', barcodeOf(notCooked));
+    ok('ברקוד: שני הברקודים שונים זה מזה (לא דורסים)', barcodeOf(cooked) !== barcodeOf(notCooked), barcodeOf(cooked) + ' / ' + barcodeOf(notCooked));
+
+    // כתיבת ברקוד ידני לקבוצה אחת (למשל דרך מסך "ניהול ברקודים") לא אמורה לזלוג לקבוצה השנייה
+    const bak = Object.assign({}, state.settings.barcodes);
+    try {
+      const kCooked = bcKeyOf({ category: 'בדיקה-מבושל', vintage: '2024', type: 'יין שיווק', cooked: 'מבושל' });
+      const kNot = bcKeyOf({ category: 'בדיקה-מבושל', vintage: '2024', type: 'יין שיווק', cooked: 'לא מבושל' });
+      ok('ברקוד: מפתחות מבושל/לא-מבושל שונים זה מזה', kCooked !== kNot, kCooked + ' vs ' + kNot);
+      setBarcodeFor(kCooked, '1111111111111');
+      ok('ברקוד: הזנה ידנית ליין מבושל לא משפיעה על הלא-מבושל של אותה קבוצה',
+        barcodeOf({ category: 'בדיקה-מבושל', vintage: '2024', type: 'יין שיווק', cooked: 'לא מבושל' }) !== '1111111111111', '');
+      setBarcodeFor(kNot, '2222222222222');
+      ok('ברקוד: הזנה ידנית ללא-מבושל לא דורסת את הברקוד שכבר הוזן למבושל',
+        barcodeOf({ category: 'בדיקה-מבושל', vintage: '2024', type: 'יין שיווק', cooked: 'מבושל' }) === '1111111111111', '');
+    } finally { state.settings.barcodes = bak; _bcIdx = null; }
+
+    // מחיקת ברקוד מפריט קיים דרך openEntryBarcode -> deleteEntryBarcode
+    const bakEntries = state.entries;
+    try {
+      const testE = { id: 999001, category: 'בדיקה-מחיקה', vintage: '2024', type: 'יין שיווק', cooked: '', units: 1, barcode: '3333333333333' };
+      state.entries = bakEntries.concat([testE]);
+      ok('ברקוד: לפני מחיקה — הברקוד שעל הפריט מוצג', barcodeOf(testE) === '3333333333333', '');
+      deleteEntryBarcode(999001);
+      const after = state.entries.find(x => x.id === 999001);
+      ok('ברקוד: מחיקה מהפריט מסירה את הברקוד שעליו (חוזר לקבוצה/קטלוג)', !after.barcode, JSON.stringify(after.barcode));
+    } finally { state.entries = bakEntries; _bcIdx = null; }
+  } catch (e) { ok('ברקוד: הבחנת מבושל/לא-מבושל לא קרסה', false, e.message); }
+
   // ---- deduct/return round trip ----
   try {
     const e0 = state.entries.find(x => (+x.units || 0) >= 10) || state.entries[0];
