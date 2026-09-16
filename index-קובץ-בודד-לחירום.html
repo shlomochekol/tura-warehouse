@@ -5295,6 +5295,13 @@ function nonProductLine(name,barcode){
       || /\d+\s*\+\s*\d+/.test(name)                       /* 11+1, 5+1 וכד' */
       || /^(משלוח|shipping|delivery|fee|discount|coupon|promo)/i.test(name);
 }
+/* מסירה סימון כמות-מבצע כמו "11+1"/"5+1" מתוך שם המוצר — זו הערת כמות
+   מהזמנת הלקוח (איך הוא ספר את הבקבוקים), לא מוצר שונה. "רוזה 2025" ו-
+   "רוזה 2025 11+1" הם אותו יין, ובלי ההסרה הזו parseItemsCell היה מחזיר
+   אותם כשני "מוצרים" נפרדים במקום שורה אחת מאוחדת עם הכמות הכוללת. */
+function stripBundleQty(name){
+  return String(name||'').replace(/\s*\d+\s*\+\s*\d+\s*/g,' ').replace(/\s{2,}/g,' ').trim();
+}
 function parseItemsCell(cell){
   const out=[],skipped=[];
   String(cell||'').split(/[\r\n]+/).forEach(line=>{
@@ -5310,13 +5317,24 @@ function parseItemsCell(cell){
     }
     if(!qty||!name){skipped.push(line);return;}
     if(nonProductLine(name,bc))return;                    // דמי משלוח וכד' — לא מדבקה
+    name=stripBundleQty(name);
     /* "דולצ'טו" — לא סומכים על תו הגרש המדויק (LionWheel לפעמים מייצא ׳ במקום ', או בלי גרש בכלל) */
     if(name.indexOf('דולצ')>=0)name+=' — כולל מארז יחיד';
     out.push({qty,name,barcode:bc});
   });
   if(skipped.length)console.warn('שורות פריט שלא זוהו:',skipped);
   window.__lwSkipped=(window.__lwSkipped||[]).concat(skipped);
-  return out;
+  /* מאחדים שורות עם אותו שם (אותו יין שהוזמן בכמה שורות/מבצעים שונים
+     ב-LionWheel) לפני חלוקה לארגזים — אחרת 24 יח' שמפוצלות לשתי שורות
+     היו מקבלות שתי חישובי ארגז נפרדים (למשל ארגז מלא + שארית) במקום
+     ארגז שלם אחד. */
+  const merged={},order=[];
+  out.forEach(p=>{
+    if(!merged[p.name]){merged[p.name]={qty:0,name:p.name,barcode:p.barcode};order.push(p.name);}
+    merged[p.name].qty+=p.qty;
+    if(!/^\d{13}$/.test(merged[p.name].barcode)&&/^\d{13}$/.test(p.barcode))merged[p.name].barcode=p.barcode;
+  });
+  return order.map(n=>merged[n]);
 }
 /* pack products into boxes: full boxes per product, then leftovers combined into mixed boxes */
 function packBoxes(prods,cap){

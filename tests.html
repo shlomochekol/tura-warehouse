@@ -129,8 +129,11 @@ if (typeof activate === 'function') activate(0);
     const out = parseItemsCell(cell);
     const names = out.map(o => o.name);
     ok('LionWheel: "10+2 מבצע חג" עם ברקוד תקין נכלל', names.some(n => n.indexOf('קברנה ויסטה') >= 0), names.join(' | '));
-    ok('LionWheel: "רוזה 2025 11+1" בלי מילת מבצע אבל עם ברקוד תקין נכלל (הבאג האמיתי שנתפס)',
-      out.some(o => o.name.indexOf('11+1') >= 0 && o.qty === 55), JSON.stringify(out.filter(o => o.name.indexOf('רוזה') >= 0)));
+    ok('LionWheel: "רוזה 2025 11+1" לא נשאר עם "11+1" בשם — מוסר לפני איחוד (הבאג האמיתי שנתפס)',
+      !names.some(n => n.indexOf('11+1') >= 0), names.join(' | '));
+    ok('LionWheel: "רוזה 2025" ו"רוזה 2025 11+1" מאוחדים לשורה אחת עם הכמות הכוללת',
+      out.filter(o => o.name === 'רוזה 2025').length === 1 && out.find(o => o.name === 'רוזה 2025').qty === 60,
+      JSON.stringify(out.filter(o => o.name.indexOf('רוזה') >= 0)));
     const rozeTotal = out.filter(o => o.name.indexOf('רוזה') >= 0).reduce((t, o) => t + o.qty, 0);
     eq('LionWheel: סך יחידות רוזה 2025 = 55+5', rozeTotal, 60);
     ok('LionWheel: דולצ\'טו עם גרש ישר מקבל סיומת', out.some(o => /דולצ.*כולל מארז יחיד/.test(o.name)) , names.join(' | '));
@@ -139,6 +142,21 @@ if (typeof activate === 'function') activate(0);
     ok('LionWheel: "מבצע קיץ" עם ברקוד "0" (לא 13 ספרות) נשאר מסונן', !names.some(n => n.indexOf('מבצע קיץ') >= 0), names.join(' | '));
     ok('LionWheel: "מארז מבצע" עם ברקוד קצר נשאר מסונן', !names.some(n => n.indexOf('מארז מבצע') >= 0), names.join(' | '));
   } catch (e) { ok('LionWheel: פארסינג לא קרס', false, e.message); }
+
+  // ---- LionWheel: דוח משתמש אמיתי — "דולצ'טו 2025" ו"דולצ'טו 2025 11+1" (24 יח' יחד)
+  // צריכים להיות שורה אחת עם 2 ארגזים, לא שתי שורות/מוצרים נפרדים במסך הפצה ----
+  try {
+    const prods = parseItemsCell([
+      "12.0: דולצ'טו 2025(7290019158493)",
+      "12.0: דולצ'טו 2025 11+1(7290019158493)",
+    ].join('\n'));
+    ok('LionWheel: דוח משתמש — דולצ\'טו 2025 רגיל + 11+1 מתמזגים לפריט אחד עם 24 יח\'',
+      prods.length === 1 && prods[0].qty === 24, JSON.stringify(prods));
+    const boxed = packBoxes(prods, 12);
+    ok('LionWheel: 24 יח\' מאוחדות ארוזות כשורה אחת עם 2 ארגזים מלאים (לא שתי שורות נפרדות)',
+      boxed.length === 1 && boxed[0].count === 2 && boxed[0].contents.length === 1 && boxed[0].contents[0].indexOf('דולצ') >= 0,
+      JSON.stringify(boxed));
+  } catch (e) { ok('LionWheel: איחוד מוצרים זהים לפני אריזה לא קרס', false, e.message); }
 
   // ---- inv_log: logInv records correctly and doesn't crash on missing entry fields ----
   try {
