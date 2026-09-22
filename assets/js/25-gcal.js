@@ -34,7 +34,7 @@ function gcalEnsureLib(){
 /* מתחברים — תמיד ביוזמת לחיצה מפורשת של המשתמש (כפתור), כדי שחלון
    ה-OAuth של Google לא ייחסם כפופ-אפ לא-רצוי. */
 async function gcalConnectUI(){
-  if(!gcalConfigured()){toast('קודם הכנס Google Client ID למעלה');return;}
+  if(!gcalConfigured()){alert('קודם הכנס Google Client ID למעלה');return;}
   const btn=document.getElementById('gcal_connect_btn');
   if(btn){btn.disabled=true;btn.textContent='מתחבר…';}
   try{
@@ -57,8 +57,8 @@ async function gcalConnectUI(){
       }
       _gcalTokenClient.requestAccessToken({prompt:'consent'});
     });
-    toast('התחברת ל-Google Calendar ✓');
-  }catch(e){toast('החיבור נכשל: '+gcalFriendlyError(e));}
+    alert('התחברת ל-Google Calendar ✓');
+  }catch(e){alert('החיבור נכשל: '+gcalFriendlyError(e));}
   finally{if(btn){btn.disabled=false;btn.textContent=gcalConnected()?'✓ מחובר — התחבר מחדש':'התחבר ל-Google';}}
 }
 function gcalSetClientId(v){state.settings.gcalClientId=String(v||'').trim();save();}
@@ -109,8 +109,8 @@ async function gcalApi(method,path,body){
    נמחק ביד ב-Google (404/410), פשוט יוצרים חדש במקום לזרוק שגיאה. */
 async function gcalPushTask(id){
   const t=(typeof tkFind==='function')?tkFind(id):null;if(!t)return;
-  if(!t.due){toast('צריך קודם תאריך יעד למשימה');return;}
-  if(!gcalConfigured()){toast('קודם הגדר Google Client ID ב-⚙ הגדרות → הגדרות מתקדמות');return;}
+  if(!t.due){alert('צריך קודם תאריך יעד למשימה');return;}
+  if(!gcalConfigured()){alert('קודם הגדר Google Client ID ב-⚙ הגדרות → הגדרות מתקדמות');return;}
   try{
     const body=gcalEventBody(t);
     let ev;
@@ -126,18 +126,18 @@ async function gcalPushTask(id){
     t.gcalEventId=ev.id;t.gcalSyncedAt=new Date().toISOString();
     if(typeof tkLog==='function')tkLog(t,'סונכרן ליומן Google');
     save();
-    toast('נוסף ליומן Google ✓ (תזכורת '+Math.max(0,+state.settings.gcalReminderMins||0)+' דק׳ לפני)');
+    alert('נוסף ליומן Google ✓ (תזכורת '+Math.max(0,+state.settings.gcalReminderMins||0)+' דק׳ לפני)');
     if(typeof tkOpen==='function'&&document.getElementById('modal').classList.contains('open'))tkOpen(id,true);
     else if(typeof renderTasks==='function')renderTasks();
-  }catch(e){toast('סנכרון ל-Google נכשל: '+gcalFriendlyError(e));}
+  }catch(e){alert('סנכרון ל-Google נכשל: '+gcalFriendlyError(e));}
 }
 async function gcalRemoveTask(id){
   const t=(typeof tkFind==='function')?tkFind(id):null;if(!t||!t.gcalEventId)return;
   try{await gcalApi('DELETE','/'+encodeURIComponent(t.gcalEventId));}
-  catch(e){if(!/^\(404\)|^\(410\)/.test(e.message)){toast('הסרה מ-Google נכשלה: '+gcalFriendlyError(e));return;}}
+  catch(e){if(!/^\(404\)|^\(410\)/.test(e.message)){alert('הסרה מ-Google נכשלה: '+gcalFriendlyError(e));return;}}
   t.gcalEventId='';t.gcalSyncedAt='';
   if(typeof tkLog==='function')tkLog(t,'הוסר מיומן Google');
   save();
   if(typeof tkOpen==='function')tkOpen(id,true);
-  toast('הוסר מיומן Google');
+  alert('הוסר מיומן Google');
 }
