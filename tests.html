@@ -174,6 +174,22 @@ if (typeof activate === 'function') activate(0);
       prods.length === 1 && prods[0].qty === 24 && prods[0].name === 'קברנה סוביניון 2022', JSON.stringify(prods));
   } catch (e) { ok('קטגוריה: תיקון איות קברנה סוביניון/סובניון לא קרס', false, e.message); }
 
+  // ---- בקשת משתמש: ברקוד זהה = אותו יין, גם אם השם שונה במקצת או הרבה —
+  // לא סומכים רק על טבלת כינויי-איות (שלא יכולה לצפות כל שם אפשרי) ----
+  try {
+    const prods = parseItemsCell([
+      "6.0: יין אדום מיוחד סדרה חדשה(7290019158387)",
+      "6.0: קברנה סוביניון 2022(7290019158387)",
+    ].join('\n'));
+    ok('LionWheel: שני שמות שונים לגמרי עם אותו ברקוד מתמזגים לפריט אחד (12 יח\', לא בטבלת כינויים)',
+      prods.length === 1 && prods[0].qty === 12, JSON.stringify(prods));
+    const prods2 = parseItemsCell([
+      "3.0: רוזה 2025(7290019158547)",
+      "3.0: משהו לגמרי אחר(9999999999999)",
+    ].join('\n'));
+    ok('LionWheel: ברקודים שונים לא מתמזגים גם אם אחד השמות דומה (2 פריטים נשארים)', prods2.length === 2, JSON.stringify(prods2));
+  } catch (e) { ok('LionWheel: איחוד לפי ברקוד (לא תלוי שם) לא קרס', false, e.message); }
+
   // ---- דף ליקוט: אותה בדיקה ברמת pickingRows/matchLocations — כולל התרחיש
   // שבו התוויות כבר יובאו לפני התיקון (טקסט ישן, לא עבר canonicalizeCategoryText) ----
   try {
@@ -182,17 +198,27 @@ if (typeof activate === 'function') activate(0);
       state.entries = bakEntries.concat([
         { id: 999101, category: 'קברנה סוביניון', vintage: '2022', type: 'יין שיווק', units: 50, prow: 2, pcol: 2, plevel: 1, label: 'לא מתוות' }
       ]);
-      // תוויות "ישנות" — כאילו יובאו לפני התיקון, השם עדיין עם האיות השגוי
+      // תוויות "ישנות" — כאילו יובאו לפני התיקון, השם עדיין עם האיות השגוי, בלי ברקוד שמור (b.prods[].b ריק)
       const batches = [
         { client: 'לקוח א', date: '2026-09-23', prods: [{ q: 10, n: 'קברנה סוביניון 2022' }] },
         { client: 'לקוח ב', date: '2026-09-23', prods: [{ q: 5, n: 'קברנה סובניון 2022' }] },
       ];
       const rows = pickingRows(batches);
       const merged = rows.filter(r => /קברנה סוב/.test(r.name));
-      ok('דף ליקוט: שתי תוויות ישנות עם איות שונה מתמזגות לשורה אחת (15 יח\')',
+      ok('דף ליקוט: שתי תוויות ישנות (בלי ברקוד) עם איות שונה מתמזגות לשורה אחת (15 יח\')',
         merged.length === 1 && merged[0].qty === 15, JSON.stringify(rows.map(r => ({ name: r.name, qty: r.qty }))));
       ok('דף ליקוט: השורה המאוחדת מוצגת עם האיות התקין', merged.length === 1 && merged[0].name === 'קברנה סוביניון 2022', merged[0] && merged[0].name);
       ok('דף ליקוט: נמצא מיקום במחסן גם לגרסה עם האיות השגוי (לא ריק)', merged.length === 1 && merged[0].locs.length > 0, merged[0] && JSON.stringify(merged[0].locs));
+
+      // עכשיו עם ברקוד שמור על כל שורה (התוויות החדשות, לאחר התיקון) — שני שמות שונים לגמרי
+      const batches2 = [
+        { client: 'לקוח ג', date: '2026-09-23', prods: [{ q: 8, n: 'קברנה סוביניון 2022', b: '7290019158387' }] },
+        { client: 'לקוח ד', date: '2026-09-23', prods: [{ q: 4, n: 'משהו אחר לגמרי בשם', b: '7290019158387' }] },
+      ];
+      const rows2 = pickingRows(batches2);
+      ok('דף ליקוט: עם ברקוד שמור, שני שמות שונים לגמרי מתמזגים לשורה אחת (12 יח\')',
+        rows2.length === 1 && rows2[0].qty === 12, JSON.stringify(rows2.map(r => ({ name: r.name, qty: r.qty }))));
+      ok('דף ליקוט: מיקום נמצא גם דרך התאמת ברקוד לקטלוג', rows2.length === 1 && rows2[0].locs.length > 0, rows2[0] && JSON.stringify(rows2[0].locs));
     } finally { state.entries = bakEntries; }
   } catch (e) { ok('דף ליקוט: איחוד קטגוריות עם איות שונה לא קרס', false, e.message); }
 

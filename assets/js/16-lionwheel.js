@@ -87,17 +87,25 @@ function parseItemsCell(cell){
   });
   if(skipped.length)console.warn('שורות פריט שלא זוהו:',skipped);
   window.__lwSkipped=(window.__lwSkipped||[]).concat(skipped);
-  /* מאחדים שורות עם אותו שם (אותו יין שהוזמן בכמה שורות/מבצעים שונים
-     ב-LionWheel) לפני חלוקה לארגזים — אחרת 24 יח' שמפוצלות לשתי שורות
-     היו מקבלות שתי חישובי ארגז נפרדים (למשל ארגז מלא + שארית) במקום
-     ארגז שלם אחד. */
+  /* מאחדים שורות שמייצגות את אותו יין לפני חלוקה לארגזים — אחרת 24 יח'
+     שמפוצלות לשתי שורות היו מקבלות שתי חישובי ארגז נפרדים (למשל ארגז
+     מלא + שארית) במקום ארגז שלם אחד. הכלל: ברקוד זהה = אותו יין, גם אם
+     השם שונה (איות/שפה) — זה מהימן יותר מהשוואת טקסט, כי הוא לא תלוי
+     בכל הכינויים האפשריים לאותה קטגוריה. שורות בלי ברקוד ממשיך מתמזג
+     לפי שם מדויק (כמו קודם). */
   const merged={},order=[];
   out.forEach(p=>{
-    if(!merged[p.name]){merged[p.name]={qty:0,name:p.name,barcode:p.barcode};order.push(p.name);}
-    merged[p.name].qty+=p.qty;
-    if(!/^\d{13}$/.test(merged[p.name].barcode)&&/^\d{13}$/.test(p.barcode))merged[p.name].barcode=p.barcode;
+    const bc=typeof normBc==='function'?normBc(p.barcode):String(p.barcode||'').trim();
+    const key=bc?('bc:'+bc):('nm:'+p.name);
+    if(!merged[key]){merged[key]={qty:0,name:p.name,barcode:p.barcode,_canon:false};order.push(key);}
+    const m=merged[key];
+    m.qty+=p.qty;
+    /* שם התצוגה: מעדיפים גרסה שכבר כתובה באיות הקנוני (WINECATS) בין
+       השורות שמתמזגות, במקום פשוט להישאר עם הראשונה שנראתה */
+    if(!m._canon&&(WINECATS||[]).some(c=>p.name.indexOf(c)>=0)){m.name=p.name;m._canon=true;}
+    if(!/^\d{13}$/.test(m.barcode)&&/^\d{13}$/.test(p.barcode))m.barcode=p.barcode;
   });
-  return order.map(n=>merged[n]);
+  return order.map(k=>{const m=merged[k];return {qty:m.qty,name:m.name,barcode:m.barcode};});
 }
 /* pack products into boxes: full boxes per product, then leftovers combined into mixed boxes */
 function packBoxes(prods,cap){
@@ -179,7 +187,7 @@ function importLionWheel(ev){
         const addr=[String(row[cStreet]||'').trim(),String(row[cNo]||'').trim()].filter(Boolean).join(' ');
         const prev=(state.labels||[]).find(x=>x.client===client&&x.date===routeDate);
         added.push({id:Date.now()+k,code:prev?prev.code:'',client,date:routeDate,items,scanned:[],
-          prods:prods.map(p=>({q:p.qty,n:p.name})),
+          prods:prods.map(p=>({q:p.qty,n:p.name,b:p.barcode||''})),
           city:String(row[cCity]||'').trim(),address:addr,
           phone:String(row[cPhone]||'').trim(),notes:String(row[cNotes]||'').trim(),
           stop:String(row[0]||'').trim(),time:String(row[cTime]||'').trim(),

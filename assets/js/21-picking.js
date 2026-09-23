@@ -22,10 +22,13 @@ function pickTypeHint(n){
   for(const [needle,label] of PICK_TYPE_HINTS)if(n.indexOf(needle)>=0)return label;
   return '';
 }
-/* מפתח איחוד: קטגוריה מזוהה + בציר + צורת אריזה. אם לא זוהתה קטגוריה
-   בכלל (מוצר לא-יין, או טקסט לא מוכר) — נשארים על הטקסט הגולמי, כדי לא
-   לאחד שני דברים שונים בניחוש. */
-function pickGroupKey(n){
+/* מפתח איחוד: ברקוד זהה = אותו יין (הכי אמין — לא תלוי איות/שפה של
+   השם בכלל), ואם אין ברקוד — קטגוריה מזוהה + בציר + צורת אריזה. אם גם
+   קטגוריה לא זוהתה (מוצר לא-יין, או טקסט לא מוכר) — נשארים על הטקסט
+   הגולמי, כדי לא לאחד שני דברים שונים בניחוש. */
+function pickGroupKey(n,barcode){
+  const bc=typeof normBc==='function'?normBc(barcode):String(barcode||'').trim();
+  if(bc)return 'bc:'+bc;
   const cat=pickCategoryOf(n);
   if(!cat)return String(n||'');
   const m=String(n||'').match(/\b(19|20)\d\d\b/);
@@ -34,13 +37,16 @@ function pickGroupKey(n){
 /* מאגד את כל המוצרים של מסלול ומצרף להם את המיקום במחסן. שם התצוגה
    משודרג לאיות הקנוני (WINECATS) ברגע שמופיעה גרסה שכבר כתובה נכון בין
    השורות המתמזגות — למשל "קברנה סובניון 2022" ו"קברנה סוביניון 2022"
-   מתמזגים לשורה אחת עם הכמות המשותפת, מוצגת תחת השם התקין. */
+   עם אותו ברקוד מתמזגים לשורה אחת עם הכמות המשותפת, מוצגת תחת השם
+   התקין. תוויות שיובאו לפני שברקוד נשמר על כל שורת מוצר (b.prods[].b)
+   ממשיכות להתמזג לפי הקטגוריה המזוהה, כמו קודם. */
 function pickingRows(batches){
   const agg={};
-  const addTo=(rawName,qty,client)=>{
-    const key=pickGroupKey(rawName);
-    if(!agg[key])agg[key]={name:rawName,qty:0,clients:{},_canon:false};
+  const addTo=(rawName,qty,client,barcode)=>{
+    const key=pickGroupKey(rawName,barcode);
+    if(!agg[key])agg[key]={name:rawName,qty:0,clients:{},barcode:'',_canon:false};
     const row=agg[key];
+    if(!row.barcode&&barcode)row.barcode=barcode;
     if(!row._canon){
       const cat=pickCategoryOf(rawName);
       if(cat&&rawName.indexOf(cat)>=0){row.name=rawName;row._canon=true;}
@@ -49,27 +55,44 @@ function pickingRows(batches){
     row.clients[client]=(row.clients[client]||0)+qty;
   };
   batches.forEach(b=>{
-    (b.prods&&b.prods.length?b.prods:[]).forEach(p=>addTo(p.n,+p.q||0,b.client));
-    /* לקוח שאין לו רשימת הזמנה — לפי תוכן הארגזים */
+    (b.prods&&b.prods.length?b.prods:[]).forEach(p=>addTo(p.n,+p.q||0,b.client,p.b));
+    /* לקוח שאין לו רשימת הזמנה — לפי תוכן הארגזים (אין ברקוד ברמה הזו) */
     if(!(b.prods&&b.prods.length)){
-      (b.items||[]).forEach(it=>(it.contents||[]).forEach(c=>addTo(c,+it.count||0,b.client)));
+      (b.items||[]).forEach(it=>(it.contents||[]).forEach(c=>addTo(c,+it.count||0,b.client,'')));
     }
   });
   /* איתור מיקומים במחסן לכל מוצר */
   return Object.values(agg).map(a=>{
-    const locs=matchLocations(a.name);
+    const locs=matchLocations(a.name,a.barcode);
     return {name:a.name,qty:a.qty,clients:a.clients,locs,sortKey:locs.length?(locs[0].prow*1000+locs[0].pcol):999999};
   }).sort((x,y)=>x.sortKey-y.sortKey);
 }
-/* מוצא פריטי מלאי שתואמים לשם מוצר מ-LionWheel */
-function matchLocations(prodName){
+/* מוצא פריטי מלאי שתואמים למוצר מ-LionWheel. אם יש ברקוד — הוא הדרך
+   הראשית והאמינה ביותר: מזהים אותו קודם מול הקטלוג, ואם הוא לא שם, מול
+   הברקוד שכבר רשום בפועל על פריטי מלאי (ברקוד קבוצתי/פריט בודד) —
+   כך שגם אם הקטלוג לא מכיר את הברקוד הזה, מוצאים אותו לפי מה שבאמת
+   רשום במחסן. רק אם אין ברקוד בכלל נופלים לזיהוי לפי טקסט השם. */
+function matchLocations(prodName,barcode){
   const n=String(prodName||'');
   const m=n.match(/\b(19|20)\d\d\b/);
   const vint=m?m[0]:'';
-  let cat=null;
-  (typeof PRODUCTS!=='undefined'?PRODUCTS:[]).forEach(p=>{if(!cat&&p.n===n&&p.c)cat=p.c;});
+  let cat=null,vintOverride=null;
+  const bc=typeof normBc==='function'?normBc(barcode):String(barcode||'').trim();
+  if(bc){
+    const prod=typeof productByCode==='function'?productByCode(bc):null;
+    if(prod&&prod.c){cat=prod.c;if(prod.v)vintOverride=prod.v;}
+    if(!cat&&typeof barcodeOf==='function'){
+      const hit=(state.entries||[]).find(e=>normBc(barcodeOf(e))===bc);
+      if(hit){cat=hit.category;vintOverride=hit.vintage;}
+    }
+  }
+  if(!cat)(typeof PRODUCTS!=='undefined'?PRODUCTS:[]).forEach(p=>{if(!cat&&p.n===n&&p.c)cat=p.c;});
   if(!cat)cat=pickCategoryOf(n);
   if(!cat)return [];
+  if(vintOverride!=null)return matchLocationsFor(cat,String(vintOverride));
+  return matchLocationsFor(cat,vint);
+}
+function matchLocationsFor(cat,vint){
   return (state.entries||[]).filter(e=>e.category===cat&&(!vint||String(e.vintage)===vint)
       &&(+e.prow>0&&+e.pcol>0)&&(+e.units>0))
     .sort((a,b)=>(a.prow-b.prow)||(a.pcol-b.pcol))
