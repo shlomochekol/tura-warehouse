@@ -174,6 +174,17 @@ if (typeof activate === 'function') activate(0);
       prods.length === 1 && prods[0].qty === 24 && prods[0].name === 'קברנה סוביניון 2022', JSON.stringify(prods));
   } catch (e) { ok('קטגוריה: תיקון איות קברנה סוביניון/סובניון לא קרס', false, e.message); }
 
+  // ---- עוד 3 דוגמאות שהמשתמש נתן: "קברנה סובניון-ויסטה"=קברנה ויסטה (לא
+  // סוביניון!), "מאונטיין פיק"=MP (י' נוספת שלא טופלה קודם), limited Edition ----
+  try {
+    ok('קטגוריה: "קברנה סובניון-ויסטה" -> קברנה ויסטה (לא קברנה סוביניון — יין אחר לגמרי)',
+      canonicalizeCategoryText('קברנה סובניון-ויסטה 2024').indexOf('קברנה ויסטה') === 0,
+      canonicalizeCategoryText('קברנה סובניון-ויסטה 2024'));
+    ok('קטגוריה: "מאונטיין פיק" (י\' נוספת) -> MP', canonicalizeCategoryText('מאונטיין פיק 2020') === 'MP 2020', canonicalizeCategoryText('מאונטיין פיק 2020'));
+    ok('קטגוריה: "מאונטין פיק" (בלי י\' נוספת) -> MP גם כן', canonicalizeCategoryText('מאונטין פיק 2020') === 'MP 2020', canonicalizeCategoryText('מאונטין פיק 2020'));
+    ok('קטגוריה: "limited Edition" (אות קטנה) -> לימיטד אדישן', canonicalizeCategoryText('limited Edition 2025') === 'לימיטד אדישן 2025', canonicalizeCategoryText('limited Edition 2025'));
+  } catch (e) { ok('קטגוריה: שלוש הדוגמאות הנוספות לא קרסו', false, e.message); }
+
   // ---- בקשת משתמש: ברקוד זהה = אותו יין, גם אם השם שונה במקצת או הרבה —
   // לא סומכים רק על טבלת כינויי-איות (שלא יכולה לצפות כל שם אפשרי) ----
   try {
