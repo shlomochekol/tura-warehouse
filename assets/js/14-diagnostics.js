@@ -55,6 +55,15 @@ function dataAudit(){
   const add=(sev,msg,n)=>P.push({sev,msg,n});
   const bad=E.filter(e=>!e.category||!String(e.category).trim());
   if(bad.length)add('err','מיקומים ללא קטגוריה',bad.length);
+  /* קטגוריה שלא ברשימת WINECATS — לרוב סימן לאיות שגוי (כמו "קברנה סובניון"
+     בלי י' לעומת "קברנה סוביניון") שגורם לאותו יין להיחשב שתי קטגוריות
+     נפרדות בכל מסך שמסתמך על category (ליקוט, דשבורד, מפה וכו'). */
+  const knownCats=new Set(WINECATS||[]);
+  const unkCounts={};
+  E.forEach(e=>{const c=String(e.category||'').trim();if(c&&!knownCats.has(c))unkCounts[c]=(unkCounts[c]||0)+1;});
+  const unkCats=Object.keys(unkCounts);
+  if(unkCats.length)add('warn','קטגוריות לא ברשימה התקנית (יתכן איות שגוי) — '+unkCats.map(c=>c+' ('+unkCounts[c]+')').join(', '),
+    unkCats.reduce((s,c)=>s+unkCounts[c],0));
   const neg=E.filter(e=>(+e.units||0)<0);
   if(neg.length)add('err','יחידות שליליות',neg.length);
   const nan=E.filter(e=>e.units!==''&&e.units!==undefined&&isNaN(+e.units));

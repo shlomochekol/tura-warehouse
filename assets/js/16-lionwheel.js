@@ -35,6 +35,35 @@ function nonProductLine(name,barcode){
 function stripBundleQty(name){
   return String(name||'').replace(/\s*\d+\s*\+\s*\d+\s*/g,' ').replace(/\s{2,}/g,' ').trim();
 }
+/* כינויים/איות חלופיים שמופיעים לפעמים במקור (LionWheel, יצוא ישן) לאותה
+   קטגוריה בדיוק כמו ב-WINECATS — התקרית האמיתית: "קברנה סובניון" (חסר י')
+   מול "קברנה סוביניון" (התקין) — בלי תיקון כזה אותו יין נחשב לשני
+   "מוצרים" שונים (מתפצל בדף ליקוט ובתוכן הארגז), ולגרסה הלא-תקינה אפילו
+   לא נמצא מיקום במחסן כי האיות לא תואם שום שם ב-WINECATS בכלל. נמצאו גם
+   "סובניון בלאן" (י' מיותרת, כיוון הפוך) ומספר שמות אנגליים באותו קטלוג. */
+/* בלי g — כל שורה מכילה מוצר אחד, ו-.test() על regex גלובלי היה מסוכן
+   (lastIndex משותף בין קריאות, גורם לתוצאה שגויה לסירוגין). */
+const CATEGORY_ALIASES=[
+  [/קברנה\s*סובניון/,'קברנה סוביניון'],
+  [/סוביניון\s*בלאן/,'סובניון בלאן'],
+  [/cabernet\s*sauvignon/i,'קברנה סוביניון'],
+  [/mountain\s*peak/i,'MP'],
+  [/מאונטין(\s*פיק)?/,'MP'],
+  [/\bspecial\s*edition\b/i,'ספיישל אדישן'],
+  [/\blimited\s*edition\b/i,'לימיטד אדישן'],
+  [/\bsnow\b/i,'סנואו']
+];
+/* מתקן שם מוצר לאיות הקנוני של WINECATS, כדי ששני איותים/שמות של אותו
+   יין יתמזגו לפריט אחד (אריזה לארגזים, דף ליקוט, תוכן ארגז) במקום
+   להיחשב שני מוצרים נפרדים. אם השם כבר מכיל איות תקין — לא נוגעים בו. */
+function canonicalizeCategoryText(name){
+  let n=String(name||'');
+  if((WINECATS||[]).some(c=>n.indexOf(c)>=0))return n;
+  for(const [re,cat] of CATEGORY_ALIASES){
+    if(re.test(n))return n.replace(re,cat);
+  }
+  return n;
+}
 function parseItemsCell(cell){
   const out=[],skipped=[];
   String(cell||'').split(/[\r\n]+/).forEach(line=>{
@@ -51,6 +80,7 @@ function parseItemsCell(cell){
     if(!qty||!name){skipped.push(line);return;}
     if(nonProductLine(name,bc))return;                    // דמי משלוח וכד' — לא מדבקה
     name=stripBundleQty(name);
+    name=canonicalizeCategoryText(name);
     /* "דולצ'טו" — לא סומכים על תו הגרש המדויק (LionWheel לפעמים מייצא ׳ במקום ', או בלי גרש בכלל) */
     if(name.indexOf('דולצ')>=0)name+=' — כולל מארז יחיד';
     out.push({qty,name,barcode:bc});

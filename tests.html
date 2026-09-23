@@ -158,6 +158,57 @@ if (typeof activate === 'function') activate(0);
       JSON.stringify(boxed));
   } catch (e) { ok('LionWheel: איחוד מוצרים זהים לפני אריזה לא קרס', false, e.message); }
 
+  // ---- דוח משתמש אמיתי: "קברנה סוביניון" מול "קברנה סובניון" (חסר י') נחשבו
+  // שני מוצרים שונים — התפצלו בדף ליקוט, ולגרסה השגויה אפילו לא נמצא מיקום ----
+  try {
+    ok('קטגוריה: canonicalizeCategoryText מתקן איות חסר-י\' (הבאג האמיתי שדווח)',
+      canonicalizeCategoryText('קברנה סובניון 2022') === 'קברנה סוביניון 2022', canonicalizeCategoryText('קברנה סובניון 2022'));
+    ok('קטגוריה: canonicalizeCategoryText מתקן י\' מיותרת בכיוון ההפוך (סובניון בלאן)',
+      canonicalizeCategoryText('סוביניון בלאן 2023') === 'סובניון בלאן 2023', canonicalizeCategoryText('סוביניון בלאן 2023'));
+    ok('קטגוריה: שם שכבר תקין לא משתנה', canonicalizeCategoryText('קברנה סוביניון 2022') === 'קברנה סוביניון 2022', '');
+    const prods = parseItemsCell([
+      "12.0: קברנה סוביניון 2022(7290019158387)",
+      "12.0: קברנה סובניון 2022(7290019158387)",
+    ].join('\n'));
+    ok('LionWheel: "קברנה סוביניון" ו"קברנה סובניון" (אותה שנה) מתמזגים לפריט אחד עם 24 יח\'',
+      prods.length === 1 && prods[0].qty === 24 && prods[0].name === 'קברנה סוביניון 2022', JSON.stringify(prods));
+  } catch (e) { ok('קטגוריה: תיקון איות קברנה סוביניון/סובניון לא קרס', false, e.message); }
+
+  // ---- דף ליקוט: אותה בדיקה ברמת pickingRows/matchLocations — כולל התרחיש
+  // שבו התוויות כבר יובאו לפני התיקון (טקסט ישן, לא עבר canonicalizeCategoryText) ----
+  try {
+    const bakEntries = state.entries;
+    try {
+      state.entries = bakEntries.concat([
+        { id: 999101, category: 'קברנה סוביניון', vintage: '2022', type: 'יין שיווק', units: 50, prow: 2, pcol: 2, plevel: 1, label: 'לא מתוות' }
+      ]);
+      // תוויות "ישנות" — כאילו יובאו לפני התיקון, השם עדיין עם האיות השגוי
+      const batches = [
+        { client: 'לקוח א', date: '2026-09-23', prods: [{ q: 10, n: 'קברנה סוביניון 2022' }] },
+        { client: 'לקוח ב', date: '2026-09-23', prods: [{ q: 5, n: 'קברנה סובניון 2022' }] },
+      ];
+      const rows = pickingRows(batches);
+      const merged = rows.filter(r => /קברנה סוב/.test(r.name));
+      ok('דף ליקוט: שתי תוויות ישנות עם איות שונה מתמזגות לשורה אחת (15 יח\')',
+        merged.length === 1 && merged[0].qty === 15, JSON.stringify(rows.map(r => ({ name: r.name, qty: r.qty }))));
+      ok('דף ליקוט: השורה המאוחדת מוצגת עם האיות התקין', merged.length === 1 && merged[0].name === 'קברנה סוביניון 2022', merged[0] && merged[0].name);
+      ok('דף ליקוט: נמצא מיקום במחסן גם לגרסה עם האיות השגוי (לא ריק)', merged.length === 1 && merged[0].locs.length > 0, merged[0] && JSON.stringify(merged[0].locs));
+    } finally { state.entries = bakEntries; }
+  } catch (e) { ok('דף ליקוט: איחוד קטגוריות עם איות שונה לא קרס', false, e.message); }
+
+  // ---- dataAudit: מזהה קטגוריה שלא ברשימת WINECATS (איות שגוי כנראה) ----
+  try {
+    const bakEntries = state.entries;
+    try {
+      state.entries = bakEntries.concat([
+        { id: 999102, category: 'קברנה סובניון', vintage: '2022', type: 'יין שיווק', units: 3, prow: 0, pcol: 0 }
+      ]);
+      const A = dataAudit();
+      const row = A.find(x => /לא ברשימה התקנית/.test(x.msg));
+      ok('dataAudit: מזהה "קברנה סובניון" כקטגוריה לא-תקנית', !!row && row.msg.indexOf('קברנה סובניון') >= 0, row && row.msg);
+    } finally { state.entries = bakEntries; }
+  } catch (e) { ok('dataAudit: בדיקת קטגוריות לא-תקניות לא קרסה', false, e.message); }
+
   // ---- inv_log: logInv records correctly and doesn't crash on missing entry fields ----
   try {
     const bak = state.invLog; state.invLog = [];

@@ -1,27 +1,64 @@
 /* ============ דף ליקוט + היסטוריית מסלולים ============ */
-/* מאגד את כל המוצרים של מסלול ומצרף להם את המיקום במחסן */
+/* מזהה את קטגוריית WINECATS של שם מוצר חופשי — קודם ניסיון ישיר, ואם לא
+   הצליח מנסה שוב אחרי canonicalizeCategoryText (16-lionwheel.js) כדי
+   שתוויות ישנות שיובאו לפני התיקון (איות שגוי/שם אנגלי) עדיין ימצאו
+   מיקום במחסן ויתמזגו נכון בדף הליקוט, לא רק ייבוא חדש. */
+function pickCategoryOf(n){
+  n=String(n||'');
+  let cat=null;
+  (WINECATS||[]).forEach(c=>{if(!cat&&n.indexOf(c)>=0)cat=c;});
+  if(!cat&&typeof canonicalizeCategoryText==='function'){
+    const fixed=canonicalizeCategoryText(n);
+    (WINECATS||[]).forEach(c=>{if(!cat&&fixed.indexOf(c)>=0)cat=c;});
+  }
+  return cat;
+}
+/* מבחין בין צורות אריזה שונות של אותו יין (בקבוק רגיל / מגנום / דאבל
+   מגנום וכד') כדי שלא יתמזגו יחד בטעות — רק איות/שפה שונים של אותה
+   קטגוריה+בציר+צורת אריזה מתמזגים. */
+const PICK_TYPE_HINTS=[['דאבל מגנום','דאבל מגנומים'],['מגנום','מגנומים'],['מלכיאור','מלכיאור'],['18 ליטר','18 ליטר'],['ארכיון','ארכיון']];
+function pickTypeHint(n){
+  n=String(n||'');
+  for(const [needle,label] of PICK_TYPE_HINTS)if(n.indexOf(needle)>=0)return label;
+  return '';
+}
+/* מפתח איחוד: קטגוריה מזוהה + בציר + צורת אריזה. אם לא זוהתה קטגוריה
+   בכלל (מוצר לא-יין, או טקסט לא מוכר) — נשארים על הטקסט הגולמי, כדי לא
+   לאחד שני דברים שונים בניחוש. */
+function pickGroupKey(n){
+  const cat=pickCategoryOf(n);
+  if(!cat)return String(n||'');
+  const m=String(n||'').match(/\b(19|20)\d\d\b/);
+  return cat+'|'+(m?m[0]:'')+'|'+pickTypeHint(n);
+}
+/* מאגד את כל המוצרים של מסלול ומצרף להם את המיקום במחסן. שם התצוגה
+   משודרג לאיות הקנוני (WINECATS) ברגע שמופיעה גרסה שכבר כתובה נכון בין
+   השורות המתמזגות — למשל "קברנה סובניון 2022" ו"קברנה סוביניון 2022"
+   מתמזגים לשורה אחת עם הכמות המשותפת, מוצגת תחת השם התקין. */
 function pickingRows(batches){
   const agg={};
+  const addTo=(rawName,qty,client)=>{
+    const key=pickGroupKey(rawName);
+    if(!agg[key])agg[key]={name:rawName,qty:0,clients:{},_canon:false};
+    const row=agg[key];
+    if(!row._canon){
+      const cat=pickCategoryOf(rawName);
+      if(cat&&rawName.indexOf(cat)>=0){row.name=rawName;row._canon=true;}
+    }
+    row.qty+=qty;
+    row.clients[client]=(row.clients[client]||0)+qty;
+  };
   batches.forEach(b=>{
-    (b.prods&&b.prods.length?b.prods:[]).forEach(p=>{
-      const k=p.n;
-      if(!agg[k])agg[k]={name:k,qty:0,clients:{}};
-      agg[k].qty+=+p.q||0;
-      agg[k].clients[b.client]=(agg[k].clients[b.client]||0)+(+p.q||0);
-    });
+    (b.prods&&b.prods.length?b.prods:[]).forEach(p=>addTo(p.n,+p.q||0,b.client));
     /* לקוח שאין לו רשימת הזמנה — לפי תוכן הארגזים */
     if(!(b.prods&&b.prods.length)){
-      (b.items||[]).forEach(it=>(it.contents||[]).forEach(c=>{
-        if(!agg[c])agg[c]={name:c,qty:0,clients:{}};
-        agg[c].qty+=+it.count||0;
-        agg[c].clients[b.client]=(agg[c].clients[b.client]||0)+(+it.count||0);
-      }));
+      (b.items||[]).forEach(it=>(it.contents||[]).forEach(c=>addTo(c,+it.count||0,b.client)));
     }
   });
   /* איתור מיקומים במחסן לכל מוצר */
   return Object.values(agg).map(a=>{
     const locs=matchLocations(a.name);
-    return {...a,locs,sortKey:locs.length?(locs[0].prow*1000+locs[0].pcol):999999};
+    return {name:a.name,qty:a.qty,clients:a.clients,locs,sortKey:locs.length?(locs[0].prow*1000+locs[0].pcol):999999};
   }).sort((x,y)=>x.sortKey-y.sortKey);
 }
 /* מוצא פריטי מלאי שתואמים לשם מוצר מ-LionWheel */
@@ -31,10 +68,7 @@ function matchLocations(prodName){
   const vint=m?m[0]:'';
   let cat=null;
   (typeof PRODUCTS!=='undefined'?PRODUCTS:[]).forEach(p=>{if(!cat&&p.n===n&&p.c)cat=p.c;});
-  if(!cat){                                   // התאמה לפי שם הקטגוריה בתוך המחרוזת
-    (WINECATS||[]).forEach(c=>{if(!cat&&n.indexOf(c)>=0)cat=c;});
-    if(!cat&&/Mountain\s*Peak|מאונטין/i.test(n))cat='MP';
-  }
+  if(!cat)cat=pickCategoryOf(n);
   if(!cat)return [];
   return (state.entries||[]).filter(e=>e.category===cat&&(!vint||String(e.vintage)===vint)
       &&(+e.prow>0&&+e.pcol>0)&&(+e.units>0))
