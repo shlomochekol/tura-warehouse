@@ -4646,15 +4646,19 @@ function mapEl(){return document.querySelector('#v-map .floor')||document.queryS
 function exportMapImg(){
   const el=mapEl();if(!el){toast('המפה לא נמצאה');return;}
   toast('מכין תמונה…');
-  needLib('html2canvas').then(()=>html2canvas(el,{backgroundColor:'#F7F3EC',scale:2,width:el.scrollWidth,height:el.scrollHeight,windowWidth:el.scrollWidth})
+  needLib('html2canvas').then(()=>html2canvas(el,{backgroundColor:'#F7F3EC',scale:2,width:el.scrollWidth,height:el.scrollHeight,windowWidth:el.scrollWidth,useCORS:true})
     .then(cv=>cv.toBlob(b=>{dl(b,'מפת-מחסן.png');toast('המפה הורדה');})))
     .catch(()=>toast('שגיאה בייצוא'));
 }
 function printMap(){
   const el=mapEl();if(!el){toast('המפה לא נמצאה');return;}
+  /* app.css is normally loaded via <link>, not <style> — must be linked explicitly
+     here too (it resolves fine, since the print iframe shares the page's base URL),
+     or the grid/cell styling is missing and the map prints as a plain stacked list. */
   let css='';
   document.querySelectorAll('style').forEach(t=>css+=t.textContent);
   const html=`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8">
+    <link rel="stylesheet" href="assets/app.css">
     <style>${css}
       @page{size:A4 landscape;margin:8mm}
       body{margin:0;background:#fff;font-family:Arial,sans-serif}
