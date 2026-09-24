@@ -278,7 +278,7 @@ function tkOpen(id,keep){
    <div class="fld"><label>הערות</label><textarea rows="3" onchange="tkSet(${id},'notes',this.value)">${esc(t.notes||'')}</textarea></div>
    <div class="fld"><label>תמונות</label>
      <div class="tk-photos">${(t.photos||[]).map((src,i)=>`<div class="tk-phw"><img src="${src}"><button class="del" aria-label="מחיקה" onclick="tkPhotoDel(${id},${i})">✕</button></div>`).join('')}</div>
-     <input type="file" accept="image/*" capture="environment" onchange="tkPhotoAdd(${id},event)"></div>
+     <input type="file" accept="image/*" onchange="tkPhotoAdd(${id},event)"></div>
    <details class="tk-log"><summary>יומן פעילות (${(t.log||[]).length})</summary>
      ${(t.log||[]).slice().reverse().map(l=>`<div class="tk-logrow"><span>${new Date(l.t).toLocaleString('he-IL')}</span> ${esc(l.a)}</div>`).join('')||'—'}</details>
    <div class="actions"><button class="btn" onclick="closeModal();renderTasks()">שמור וסגור</button>
